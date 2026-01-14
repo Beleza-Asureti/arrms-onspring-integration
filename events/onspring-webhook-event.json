@@ -1,0 +1,11 @@
+{
+  "resource": "/webhook/onspring",
+  "path": "/webhook/onspring",
+  "httpMethod": "POST",
+  "headers": {
+    "Content-Type": "application/json",
+    "x-api-key": "test-api-key"
+  },
+  "body": "{\"eventType\":\"RecordCreated\",\"recordId\":12345,\"appId\":100,\"timestamp\":\"2024-01-15T10:30:00Z\",\"fields\":{\"Name\":\"Sample Risk\",\"Description\":\"This is a sample risk record\",\"Status\":\"Open\",\"Severity\":\"High\"}}",
+  "isBase64Encoded": false
+}

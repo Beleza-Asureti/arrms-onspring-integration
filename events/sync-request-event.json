@@ -1,0 +1,11 @@
+{
+  "resource": "/sync/onspring-to-arrms",
+  "path": "/sync/onspring-to-arrms",
+  "httpMethod": "POST",
+  "headers": {
+    "Content-Type": "application/json",
+    "x-api-key": "test-api-key"
+  },
+  "body": "{\"app_id\":100,\"filter\":{\"field\":\"Status\",\"value\":\"Active\"},\"batch_size\":50}",
+  "isBase64Encoded": false
+}

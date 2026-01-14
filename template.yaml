@@ -1,0 +1,275 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  ARRMS-Onspring Integration Service
+
+  AWS Lambda-based integration service that enables bi-directional, decoupled
+  integration between Onspring (GRC source of record) and ARRMS platform.
+
+Metadata:
+  AWS::ServerlessRepo::Application:
+    Name: arrms-onspring-integration
+    Description: Integration bridge between Onspring and ARRMS
+    Author: Beleza-Asureti
+    SpdxLicenseId: MIT
+    LicenseUrl: LICENSE
+    ReadmeUrl: README.md
+    Labels: ['integration', 'lambda', 'onspring', 'arrms', 'grc']
+    HomePageUrl: https://github.com/Beleza-Asureti/arrms-onspring-integration
+
+Parameters:
+  Environment:
+    Type: String
+    Default: dev
+    AllowedValues:
+      - dev
+      - staging
+      - prod
+    Description: Environment name
+
+  OnspringApiUrl:
+    Type: String
+    Default: https://api.onspring.com/v2
+    Description: Onspring API base URL
+
+  OnspringApiKeySecretName:
+    Type: String
+    Default: /arrms-integration/onspring/api-key
+    Description: AWS Secrets Manager secret name for Onspring API key
+
+  ArrmsApiUrl:
+    Type: String
+    Description: ARRMS API base URL
+
+  ArrmsApiKeySecretName:
+    Type: String
+    Default: /arrms-integration/arrms/api-key
+    Description: AWS Secrets Manager secret name for ARRMS API key
+
+  LogLevel:
+    Type: String
+    Default: INFO
+    AllowedValues:
+      - DEBUG
+      - INFO
+      - WARNING
+      - ERROR
+      - CRITICAL
+    Description: Application log level
+
+Globals:
+  Function:
+    Runtime: python3.11
+    Timeout: 60
+    MemorySize: 512
+    Environment:
+      Variables:
+        ENVIRONMENT: !Ref Environment
+        LOG_LEVEL: !Ref LogLevel
+        ONSPRING_API_URL: !Ref OnspringApiUrl
+        ONSPRING_API_KEY_SECRET: !Ref OnspringApiKeySecretName
+        ARRMS_API_URL: !Ref ArrmsApiUrl
+        ARRMS_API_KEY_SECRET: !Ref ArrmsApiKeySecretName
+        POWERTOOLS_SERVICE_NAME: arrms-onspring-integration
+        POWERTOOLS_METRICS_NAMESPACE: ARRMSIntegration
+    Architectures:
+      - x86_64
+    Tracing: Active
+
+  Api:
+    TracingEnabled: true
+    Cors:
+      AllowMethods: "'GET,POST,PUT,OPTIONS'"
+      AllowHeaders: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+      AllowOrigin: "'*'"
+
+Resources:
+  # API Gateway
+  ARRMSIntegrationApi:
+    Type: AWS::Serverless::Api
+    Properties:
+      Name: !Sub ${AWS::StackName}-api
+      StageName: !Ref Environment
+      Auth:
+        ApiKeyRequired: true
+        UsagePlan:
+          CreateUsagePlan: PER_API
+          Description: Usage plan for ARRMS-Onspring integration
+          Quota:
+            Limit: 10000
+            Period: DAY
+          Throttle:
+            BurstLimit: 100
+            RateLimit: 50
+      DefinitionBody:
+        openapi: 3.0.1
+        info:
+          title: ARRMS-Onspring Integration API
+          version: 1.0.0
+          description: RESTful API for bi-directional integration between Onspring and ARRMS
+        paths:
+          /webhook/onspring:
+            post:
+              summary: Receive webhook events from Onspring
+              x-amazon-apigateway-integration:
+                uri: !Sub arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${OnspringWebhookFunction.Arn}/invocations
+                passthroughBehavior: when_no_match
+                httpMethod: POST
+                type: aws_proxy
+              security:
+                - ApiKeyAuth: []
+          /sync/onspring-to-arrms:
+            post:
+              summary: Trigger sync from Onspring to ARRMS
+              x-amazon-apigateway-integration:
+                uri: !Sub arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${OnspringToArrmsFunction.Arn}/invocations
+                passthroughBehavior: when_no_match
+                httpMethod: POST
+                type: aws_proxy
+              security:
+                - ApiKeyAuth: []
+          /health:
+            get:
+              summary: Health check endpoint
+              x-amazon-apigateway-integration:
+                uri: !Sub arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${HealthCheckFunction.Arn}/invocations
+                passthroughBehavior: when_no_match
+                httpMethod: POST
+                type: aws_proxy
+              security:
+                - ApiKeyAuth: []
+        components:
+          securitySchemes:
+            ApiKeyAuth:
+              type: apiKey
+              name: x-api-key
+              in: header
+
+  # Lambda Functions
+  OnspringWebhookFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub ${AWS::StackName}-onspring-webhook
+      Description: Receives and processes webhook events from Onspring
+      CodeUri: src/
+      Handler: handlers.onspring_webhook.lambda_handler
+      Policies:
+        - SecretsManagerReadWrite
+        - CloudWatchLambdaInsightsExecutionRolePolicy
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                - logs:CreateLogGroup
+                - logs:CreateLogStream
+                - logs:PutLogEvents
+              Resource: !Sub arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/*
+      Events:
+        WebhookApi:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ARRMSIntegrationApi
+            Path: /webhook/onspring
+            Method: POST
+
+  OnspringToArrmsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub ${AWS::StackName}-onspring-to-arrms
+      Description: Retrieves data from Onspring and pushes to ARRMS
+      CodeUri: src/
+      Handler: handlers.onspring_to_arrms.lambda_handler
+      Timeout: 300
+      Policies:
+        - SecretsManagerReadWrite
+        - CloudWatchLambdaInsightsExecutionRolePolicy
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                - logs:CreateLogGroup
+                - logs:CreateLogStream
+                - logs:PutLogEvents
+              Resource: !Sub arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/*
+      Events:
+        SyncApi:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ARRMSIntegrationApi
+            Path: /sync/onspring-to-arrms
+            Method: POST
+        # Optional: Schedule for periodic sync
+        # ScheduledSync:
+        #   Type: Schedule
+        #   Properties:
+        #     Schedule: rate(1 hour)
+        #     Description: Periodic sync from Onspring to ARRMS
+        #     Enabled: false
+
+  HealthCheckFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub ${AWS::StackName}-health-check
+      Description: Health check endpoint for monitoring
+      CodeUri: src/
+      Handler: handlers.health_check.lambda_handler
+      Timeout: 30
+      Policies:
+        - CloudWatchLambdaInsightsExecutionRolePolicy
+      Events:
+        HealthApi:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ARRMSIntegrationApi
+            Path: /health
+            Method: GET
+
+  # CloudWatch Log Groups with retention
+  OnspringWebhookLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/lambda/${OnspringWebhookFunction}
+      RetentionInDays: 30
+
+  OnspringToArrmsLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/lambda/${OnspringToArrmsFunction}
+      RetentionInDays: 30
+
+  HealthCheckLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/lambda/${HealthCheckFunction}
+      RetentionInDays: 7
+
+Outputs:
+  ApiUrl:
+    Description: API Gateway endpoint URL
+    Value: !Sub https://${ARRMSIntegrationApi}.execute-api.${AWS::Region}.amazonaws.com/${Environment}
+    Export:
+      Name: !Sub ${AWS::StackName}-ApiUrl
+
+  ApiId:
+    Description: API Gateway ID
+    Value: !Ref ARRMSIntegrationApi
+    Export:
+      Name: !Sub ${AWS::StackName}-ApiId
+
+  OnspringWebhookFunctionArn:
+    Description: Onspring Webhook Lambda Function ARN
+    Value: !GetAtt OnspringWebhookFunction.Arn
+    Export:
+      Name: !Sub ${AWS::StackName}-OnspringWebhookFunctionArn
+
+  OnspringToArrmsunctionArn:
+    Description: Onspring to ARRMS Lambda Function ARN
+    Value: !GetAtt OnspringToArrmsFunction.Arn
+    Export:
+      Name: !Sub ${AWS::StackName}-OnspringToArrmsFunctionArn
+
+  HealthCheckFunctionArn:
+    Description: Health Check Lambda Function ARN
+    Value: !GetAtt HealthCheckFunction.Arn
+    Export:
+      Name: !Sub ${AWS::StackName}-HealthCheckFunctionArn
