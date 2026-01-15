@@ -344,3 +344,10 @@ For issues or questions:
 - Resource: `arn:aws:apigateway:us-east-1::/tags/*`
 - Required for CloudFormation to tag API Gateway resources
 - Deleted v1, created v6 (IAM policy version limit is 5)
+
+### CloudWatch Logs Tagging Permission
+**IAM Policy Update** (v6 → v7):
+- Added CloudWatch Logs resource tagging actions
+- Actions: `logs:TagResource`, `logs:UntagResource`
+- Different from `logs:TagLogGroup` - CloudFormation uses TagResource
+- Deleted v2, created v7
