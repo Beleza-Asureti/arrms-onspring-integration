@@ -40,7 +40,7 @@ def lambda_handler(event: Dict[str, Any], context: LambdaContext) -> Dict[str, A
             "service": "arrms-onspring-integration",
             "environment": os.environ.get("ENVIRONMENT", "unknown"),
             "version": "1.0.0",
-            "checks": {}
+            "checks": {},
         }
 
         # Check environment variables
@@ -48,7 +48,7 @@ def lambda_handler(event: Dict[str, Any], context: LambdaContext) -> Dict[str, A
             "ONSPRING_API_URL",
             "ONSPRING_API_KEY_SECRET",
             "ARRMS_API_URL",
-            "ARRMS_API_KEY_SECRET"
+            "ARRMS_API_KEY_SECRET",
         ]
 
         env_check = all(os.environ.get(var) for var in required_env_vars)
@@ -61,8 +61,7 @@ def lambda_handler(event: Dict[str, Any], context: LambdaContext) -> Dict[str, A
 
         # Determine overall status
         all_checks_pass = all(
-            status == "pass"
-            for status in health_status["checks"].values()
+            status == "pass" for status in health_status["checks"].values()
         )
 
         if not all_checks_pass:
@@ -76,11 +75,7 @@ def lambda_handler(event: Dict[str, Any], context: LambdaContext) -> Dict[str, A
     except Exception as e:
         logger.exception("Health check failed")
         return build_response(
-            status_code=503,
-            body={
-                "status": "unhealthy",
-                "error": str(e)
-            }
+            status_code=503, body={"status": "unhealthy", "error": str(e)}
         )
 
 

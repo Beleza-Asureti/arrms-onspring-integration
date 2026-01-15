@@ -30,8 +30,8 @@ class OnspringClient:
 
     def __init__(self):
         """Initialize Onspring client with configuration from environment."""
-        self.base_url = os.environ.get('ONSPRING_API_URL', 'https://api.onspring.com')
-        self.api_key_secret_name = os.environ.get('ONSPRING_API_KEY_SECRET')
+        self.base_url = os.environ.get("ONSPRING_API_URL", "https://api.onspring.com")
+        self.api_key_secret_name = os.environ.get("ONSPRING_API_KEY_SECRET")
 
         if not self.api_key_secret_name:
             raise ValueError("ONSPRING_API_KEY_SECRET environment variable not set")
@@ -50,15 +50,17 @@ class OnspringClient:
             AuthenticationError: If unable to retrieve API key
         """
         try:
-            secrets_client = boto3.client('secretsmanager')
-            response = secrets_client.get_secret_value(SecretId=self.api_key_secret_name)
+            secrets_client = boto3.client("secretsmanager")
+            response = secrets_client.get_secret_value(
+                SecretId=self.api_key_secret_name
+            )
 
             # Handle both string and JSON secrets
-            if 'SecretString' in response:
-                secret = response['SecretString']
+            if "SecretString" in response:
+                secret = response["SecretString"]
                 try:
                     secret_dict = json.loads(secret)
-                    return secret_dict.get('api_key', secret)
+                    return secret_dict.get("api_key", secret)
                 except json.JSONDecodeError:
                     return secret
             else:
@@ -82,7 +84,7 @@ class OnspringClient:
             total=3,
             backoff_factor=1,
             status_forcelist=[429, 500, 502, 503, 504],
-            allowed_methods=["GET", "POST", "PUT", "DELETE"]
+            allowed_methods=["GET", "POST", "PUT", "DELETE"],
         )
 
         adapter = HTTPAdapter(max_retries=retry_strategy)
@@ -90,11 +92,13 @@ class OnspringClient:
         session.mount("http://", adapter)
 
         # Set default headers
-        session.headers.update({
-            'X-ApiKey': self.api_key,
-            'x-api-version': '2',
-            'Content-Type': 'application/json'
-        })
+        session.headers.update(
+            {
+                "X-ApiKey": self.api_key,
+                "x-api-version": "2",
+                "Content-Type": "application/json",
+            }
+        )
 
         return session
 
@@ -156,7 +160,7 @@ class OnspringClient:
         app_id: int,
         filter_criteria: Optional[Dict[str, Any]] = None,
         page_size: int = 100,
-        page_number: int = 1
+        page_number: int = 1,
     ) -> List[Dict[str, Any]]:
         """
         Retrieve multiple records from Onspring application.
@@ -182,8 +186,8 @@ class OnspringClient:
                 "appId": app_id,
                 "pagingRequest": {
                     "pageNumber": page_number,
-                    "pageSize": min(page_size, 1000)
-                }
+                    "pageSize": min(page_size, 1000),
+                },
             }
 
             if filter_criteria:
@@ -193,7 +197,7 @@ class OnspringClient:
             response.raise_for_status()
 
             data = response.json()
-            records = data.get('records', [])
+            records = data.get("records", [])
 
             logger.info(f"Retrieved {len(records)} records from app {app_id}")
 
@@ -224,10 +228,7 @@ class OnspringClient:
             url = f"{self.base_url}/Records"
             logger.info(f"Creating record in app {app_id}")
 
-            payload = {
-                "appId": app_id,
-                "fields": field_data
-            }
+            payload = {"appId": app_id, "fields": field_data}
 
             response = self.session.put(url, json=payload, timeout=30)
             response.raise_for_status()
@@ -244,7 +245,9 @@ class OnspringClient:
             logger.error(f"Request error creating record: {str(e)}")
             raise OnspringAPIError(f"Request failed: {str(e)}")
 
-    def update_record(self, app_id: int, record_id: int, field_data: Dict[str, Any]) -> Dict[str, Any]:
+    def update_record(
+        self, app_id: int, record_id: int, field_data: Dict[str, Any]
+    ) -> Dict[str, Any]:
         """
         Update an existing record in Onspring.
 
@@ -263,11 +266,7 @@ class OnspringClient:
             url = f"{self.base_url}/Records"
             logger.info(f"Updating record {record_id} in app {app_id}")
 
-            payload = {
-                "appId": app_id,
-                "recordId": record_id,
-                "fields": field_data
-            }
+            payload = {"appId": app_id, "recordId": record_id, "fields": field_data}
 
             response = self.session.put(url, json=payload, timeout=30)
             response.raise_for_status()

@@ -19,49 +19,41 @@ class Settings(BaseSettings):
 
     # Onspring Configuration
     onspring_api_url: str = Field(
-        default="https://api.onspring.com",
-        alias="ONSPRING_API_URL"
+        default="https://api.onspring.com", alias="ONSPRING_API_URL"
     )
     onspring_api_key_secret: str = Field(
         ...,
         alias="ONSPRING_API_KEY_SECRET",
-        description="AWS Secrets Manager secret name for Onspring API key"
+        description="AWS Secrets Manager secret name for Onspring API key",
     )
 
     # ARRMS Configuration
     arrms_api_url: str = Field(
-        ...,
-        alias="ARRMS_API_URL",
-        description="ARRMS API base URL"
+        ..., alias="ARRMS_API_URL", description="ARRMS API base URL"
     )
     arrms_api_key_secret: str = Field(
         ...,
         alias="ARRMS_API_KEY_SECRET",
-        description="AWS Secrets Manager secret name for ARRMS API key"
+        description="AWS Secrets Manager secret name for ARRMS API key",
     )
 
     # AWS Configuration
-    aws_region: Optional[str] = Field(
-        default=None,
-        alias="AWS_REGION"
-    )
+    aws_region: Optional[str] = Field(default=None, alias="AWS_REGION")
 
     # Operational Settings
     request_timeout: int = Field(
-        default=30,
-        description="HTTP request timeout in seconds"
+        default=30, description="HTTP request timeout in seconds"
     )
     max_retries: int = Field(
-        default=3,
-        description="Maximum number of retry attempts for failed requests"
+        default=3, description="Maximum number of retry attempts for failed requests"
     )
     batch_size: int = Field(
-        default=100,
-        description="Default batch size for bulk operations"
+        default=100, description="Default batch size for bulk operations"
     )
 
     class Config:
         """Pydantic configuration."""
+
         env_file = ".env"
         env_file_encoding = "utf-8"
         case_sensitive = False

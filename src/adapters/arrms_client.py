@@ -31,8 +31,8 @@ class ARRMSClient:
 
     def __init__(self):
         """Initialize ARRMS client with configuration from environment."""
-        self.base_url = os.environ.get('ARRMS_API_URL')
-        self.api_key_secret_name = os.environ.get('ARRMS_API_KEY_SECRET')
+        self.base_url = os.environ.get("ARRMS_API_URL")
+        self.api_key_secret_name = os.environ.get("ARRMS_API_KEY_SECRET")
 
         if not self.base_url:
             raise ValueError("ARRMS_API_URL environment variable not set")
@@ -54,15 +54,17 @@ class ARRMSClient:
             AuthenticationError: If unable to retrieve API key
         """
         try:
-            secrets_client = boto3.client('secretsmanager')
-            response = secrets_client.get_secret_value(SecretId=self.api_key_secret_name)
+            secrets_client = boto3.client("secretsmanager")
+            response = secrets_client.get_secret_value(
+                SecretId=self.api_key_secret_name
+            )
 
             # Handle both string and JSON secrets
-            if 'SecretString' in response:
-                secret = response['SecretString']
+            if "SecretString" in response:
+                secret = response["SecretString"]
                 try:
                     secret_dict = json.loads(secret)
-                    return secret_dict.get('api_key', secret)
+                    return secret_dict.get("api_key", secret)
                 except json.JSONDecodeError:
                     return secret
             else:
@@ -86,7 +88,7 @@ class ARRMSClient:
             total=3,
             backoff_factor=1,
             status_forcelist=[429, 500, 502, 503, 504],
-            allowed_methods=["GET", "POST", "PUT", "DELETE", "PATCH"]
+            allowed_methods=["GET", "POST", "PUT", "DELETE", "PATCH"],
         )
 
         adapter = HTTPAdapter(max_retries=retry_strategy)
@@ -94,11 +96,13 @@ class ARRMSClient:
         session.mount("http://", adapter)
 
         # Set default headers
-        session.headers.update({
-            'Authorization': f'Bearer {self.api_key}',
-            'Content-Type': 'application/json',
-            'Accept': 'application/json'
-        })
+        session.headers.update(
+            {
+                "Authorization": f"Bearer {self.api_key}",
+                "Content-Type": "application/json",
+                "Accept": "application/json",
+            }
+        )
 
         return session
 
@@ -143,7 +147,7 @@ class ARRMSClient:
             payload = {
                 **data,
                 "created_at": datetime.utcnow().isoformat(),
-                "source": "onspring"
+                "source": "onspring",
             }
 
             response = self.session.post(url, json=payload, timeout=30)
@@ -177,7 +181,7 @@ class ARRMSClient:
             ARRMSAPIError: If API request fails
         """
         try:
-            record_id = data.get('id')
+            record_id = data.get("id")
             if not record_id:
                 raise ValueError("Record ID is required for update")
 
@@ -188,13 +192,17 @@ class ARRMSClient:
             payload = {
                 **data,
                 "updated_at": datetime.utcnow().isoformat(),
-                "source": "onspring"
+                "source": "onspring",
             }
 
             response = self.session.put(url, json=payload, timeout=30)
             response.raise_for_status()
 
-            result = response.json() if response.text else {"id": record_id, "status": "updated"}
+            result = (
+                response.json()
+                if response.text
+                else {"id": record_id, "status": "updated"}
+            )
             logger.info(f"Updated ARRMS record {record_id}")
 
             return result
@@ -222,7 +230,7 @@ class ARRMSClient:
             ARRMSAPIError: If API request fails
         """
         try:
-            record_id = data.get('id')
+            record_id = data.get("id")
 
             # Check if record exists
             if record_id and self._record_exists(record_id):
@@ -342,7 +350,7 @@ class ARRMSClient:
             payload = {
                 "records": records,
                 "source": "onspring",
-                "created_at": datetime.utcnow().isoformat()
+                "created_at": datetime.utcnow().isoformat(),
             }
 
             response = self.session.post(url, json=payload, timeout=120)
