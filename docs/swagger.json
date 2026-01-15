@@ -1,0 +1,2597 @@
+{
+  "openapi": "3.0.1",
+  "info": {
+    "title": "Onspring API Version 2",
+    "description": "Version 2 of the Onspring API.",
+    "termsOfService": "https://onspring.com",
+    "contact": {
+      "name": "Onspring Help",
+      "url": "https://onspring.com",
+      "email": "help@onspring.com"
+    },
+    "license": {
+      "name": "Licensing",
+      "url": "https://onspring.com"
+    },
+    "version": "v2"
+  },
+  "paths": {
+    "/Apps": {
+      "get": {
+        "tags": [
+          "Apps"
+        ],
+        "summary": "Gets all apps for the current client.",
+        "parameters": [
+          {
+            "name": "PageNumber",
+            "in": "query",
+            "description": "Page number being requested.\r\nDefault value is 1.",
+            "schema": {
+              "maximum": 2147483647,
+              "minimum": 0,
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "PageSize",
+            "in": "query",
+            "description": "Count of items requested in the page.\r\nDefault value is 50. Max value is 1,000.",
+            "schema": {
+              "maximum": 1000,
+              "minimum": 0,
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "x-api-version",
+            "in": "header",
+            "description": "Versioning header",
+            "schema": {
+              "type": "string",
+              "default": "2"
+            }
+          }
+        ],
+        "responses": {
+          "401": {
+            "description": "Unauthorized"
+          },
+          "200": {
+            "description": "Returns the collection of apps the client has access to.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetPagedAppsResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid paging information."
+          }
+        }
+      }
+    },
+    "/Apps/id/{appId}": {
+      "get": {
+        "tags": [
+          "Apps"
+        ],
+        "summary": "Gets an app by its identifier, if it exists, for the current client.",
+        "parameters": [
+          {
+            "name": "appId",
+            "in": "path",
+            "description": "Identifier of the app.",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "x-api-version",
+            "in": "header",
+            "description": "Versioning header",
+            "schema": {
+              "type": "string",
+              "default": "2"
+            }
+          }
+        ],
+        "responses": {
+          "401": {
+            "description": "Unauthorized"
+          },
+          "200": {
+            "description": "Returns the requested app.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppModel"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Client doesn't have read access to the app.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "App could not be found or doesn't exist."
+          }
+        }
+      }
+    },
+    "/Apps/batch-get": {
+      "post": {
+        "tags": [
+          "Apps"
+        ],
+        "summary": "Gets up to 100 apps by their identifiers, for the current client.",
+        "parameters": [
+          {
+            "name": "x-api-version",
+            "in": "header",
+            "description": "Versioning header",
+            "schema": {
+              "type": "string",
+              "default": "2"
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "Collection of app identifiers.",
+          "content": {
+            "application/json-patch+json": {
+              "schema": {
+                "maxItems": 100,
+                "minItems": 1,
+                "type": "array",
+                "items": {
+                  "type": "integer",
+                  "format": "int32"
+                }
+              }
+            },
+            "application/json": {
+              "schema": {
+                "maxItems": 100,
+                "minItems": 1,
+                "type": "array",
+                "items": {
+                  "type": "integer",
+                  "format": "int32"
+                }
+              }
+            },
+            "text/json": {
+              "schema": {
+                "maxItems": 100,
+                "minItems": 1,
+                "type": "array",
+                "items": {
+                  "type": "integer",
+                  "format": "int32"
+                }
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "maxItems": 100,
+                "minItems": 1,
+                "type": "array",
+                "items": {
+                  "type": "integer",
+                  "format": "int32"
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "401": {
+            "description": "Unauthorized"
+          },
+          "200": {
+            "description": "Returns the requested apps.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetAppsResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Client doesn't have read access to any of the apps.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/Fields/id/{fieldId}": {
+      "get": {
+        "tags": [
+          "Fields"
+        ],
+        "summary": "Gets the field by its identifier.",
+        "parameters": [
+          {
+            "name": "fieldId",
+            "in": "path",
+            "description": "Identifier of the field.",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "x-api-version",
+            "in": "header",
+            "description": "Versioning header",
+            "schema": {
+              "type": "string",
+              "default": "2"
+            }
+          }
+        ],
+        "responses": {
+          "401": {
+            "description": "Unauthorized"
+          },
+          "200": {
+            "description": "Returns the requested field.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FieldModel"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Client doesn't have read access to the field.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "App could not be found or doesn't exist."
+          }
+        }
+      }
+    },
+    "/Fields/batch-get": {
+      "post": {
+        "tags": [
+          "Fields"
+        ],
+        "summary": "Gets a batch (max 100) of fields by their identifiers.",
+        "parameters": [
+          {
+            "name": "x-api-version",
+            "in": "header",
+            "description": "Versioning header",
+            "schema": {
+              "type": "string",
+              "default": "2"
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "Collection of field identifiers.",
+          "content": {
+            "application/json-patch+json": {
+              "schema": {
+                "maxItems": 100,
+                "minItems": 1,
+                "type": "array",
+                "items": {
+                  "type": "integer",
+                  "format": "int32"
+                }
+              }
+            },
+            "application/json": {
+              "schema": {
+                "maxItems": 100,
+                "minItems": 1,
+                "type": "array",
+                "items": {
+                  "type": "integer",
+                  "format": "int32"
+                }
+              }
+            },
+            "text/json": {
+              "schema": {
+                "maxItems": 100,
+                "minItems": 1,
+                "type": "array",
+                "items": {
+                  "type": "integer",
+                  "format": "int32"
+                }
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "maxItems": 100,
+                "minItems": 1,
+                "type": "array",
+                "items": {
+                  "type": "integer",
+                  "format": "int32"
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "401": {
+            "description": "Unauthorized"
+          },
+          "200": {
+            "description": "Returns the requested fields.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetFieldsResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Client doesn't have read access to the field.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "App could not be found or doesn't exist."
+          }
+        }
+      }
+    },
+    "/Fields/appId/{appId}": {
+      "get": {
+        "tags": [
+          "Fields"
+        ],
+        "summary": "Gets a list of fields for a given application.",
+        "parameters": [
+          {
+            "name": "appId",
+            "in": "path",
+            "description": "Identifier of the app.",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "PageNumber",
+            "in": "query",
+            "description": "Page number being requested.\r\nDefault value is 1.",
+            "schema": {
+              "maximum": 2147483647,
+              "minimum": 0,
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "PageSize",
+            "in": "query",
+            "description": "Count of items requested in the page.\r\nDefault value is 50. Max value is 1,000.",
+            "schema": {
+              "maximum": 1000,
+              "minimum": 0,
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "x-api-version",
+            "in": "header",
+            "description": "Versioning header",
+            "schema": {
+              "type": "string",
+              "default": "2"
+            }
+          }
+        ],
+        "responses": {
+          "401": {
+            "description": "Unauthorized"
+          },
+          "200": {
+            "description": "Returns a collection of fields associated to the app, that the client can read.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetPagedFieldsResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid paging information."
+          },
+          "403": {
+            "description": "Client doesn't have read access to the app.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/Files/recordId/{recordId}/fieldId/{fieldId}/fileId/{fileId}": {
+      "get": {
+        "tags": [
+          "Files"
+        ],
+        "summary": "Gets a file's information.",
+        "parameters": [
+          {
+            "name": "recordId",
+            "in": "path",
+            "description": "",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "fieldId",
+            "in": "path",
+            "description": "",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "fileId",
+            "in": "path",
+            "description": "",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "x-api-version",
+            "in": "header",
+            "description": "Versioning header",
+            "schema": {
+              "type": "string",
+              "default": "2"
+            }
+          }
+        ],
+        "responses": {
+          "401": {
+            "description": "Unauthorized"
+          },
+          "200": {
+            "description": "Returns the requested information.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetFileInfoResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Request is invalid based on underlying data. Example: non-file field."
+          },
+          "403": {
+            "description": "Client doesn't have read access to the app/field.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "File could not be found or doesn't exist.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Files"
+        ],
+        "summary": "Deletes a file attachment.",
+        "parameters": [
+          {
+            "name": "recordId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "fieldId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "fileId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "x-api-version",
+            "in": "header",
+            "description": "Versioning header",
+            "schema": {
+              "type": "string",
+              "default": "2"
+            }
+          }
+        ],
+        "responses": {
+          "401": {
+            "description": "Unauthorized"
+          },
+          "204": {
+            "description": "Returned on a successful delete."
+          },
+          "400": {
+            "description": "Request is invalid based on underlying data. Example: non-file field."
+          },
+          "403": {
+            "description": "Client doesn't have update access to the app/field.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Field/Record could not be found or doesn't exist.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "File could not be deleted due to internal error."
+          }
+        }
+      }
+    },
+    "/Files/recordId/{recordId}/fieldId/{fieldId}/fileId/{fileId}/file": {
+      "get": {
+        "tags": [
+          "Files"
+        ],
+        "summary": "Gets a file's content.",
+        "parameters": [
+          {
+            "name": "recordId",
+            "in": "path",
+            "description": "",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "fieldId",
+            "in": "path",
+            "description": "",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "fileId",
+            "in": "path",
+            "description": "",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "x-api-version",
+            "in": "header",
+            "description": "Versioning header",
+            "schema": {
+              "type": "string",
+              "default": "2"
+            }
+          }
+        ],
+        "responses": {
+          "401": {
+            "description": "Unauthorized"
+          },
+          "200": {
+            "description": "Returns the requested file."
+          },
+          "400": {
+            "description": "Request is invalid based on underlying data. Example: non-file field."
+          },
+          "403": {
+            "description": "Client doesn't have read access to the app/field.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "File could not be found or doesn't exist.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/Files": {
+      "post": {
+        "tags": [
+          "Files"
+        ],
+        "summary": "Saves a file.",
+        "parameters": [
+          {
+            "name": "x-api-version",
+            "in": "header",
+            "description": "Versioning header",
+            "schema": {
+              "type": "string",
+              "default": "2"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "required": [
+                  "FieldId",
+                  "File",
+                  "RecordId"
+                ],
+                "type": "object",
+                "properties": {
+                  "RecordId": {
+                    "type": "integer",
+                    "description": "Record identifier.",
+                    "format": "int32"
+                  },
+                  "FieldId": {
+                    "type": "integer",
+                    "description": "Field identifier.",
+                    "format": "int32"
+                  },
+                  "Notes": {
+                    "type": "string",
+                    "description": "File's associated notes. Only used for Attachment fields."
+                  },
+                  "ModifiedDate": {
+                    "type": "string",
+                    "description": "Modification date of the file.",
+                    "format": "date-time"
+                  },
+                  "File": {
+                    "type": "string",
+                    "description": "File used in upload.",
+                    "format": "binary"
+                  }
+                }
+              },
+              "encoding": {
+                "RecordId": {
+                  "style": "form"
+                },
+                "FieldId": {
+                  "style": "form"
+                },
+                "Notes": {
+                  "style": "form"
+                },
+                "ModifiedDate": {
+                  "style": "form"
+                },
+                "File": {
+                  "style": "form"
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "401": {
+            "description": "Unauthorized"
+          },
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Int32CreatedWithIdResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Request is invalid based on underlying data. Example: non-file field."
+          },
+          "403": {
+            "description": "Client doesn't have update access to the app/field.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Field/Record could not be found or doesn't exist.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "File could not be saved due to internal error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResponse"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Returns the requested file's new identifier."
+          }
+        }
+      }
+    },
+    "/Lists/id/{listId}/items": {
+      "put": {
+        "tags": [
+          "Lists"
+        ],
+        "summary": "Saves a list item. If an Id is provided, we'll update it, otherwise a new list item will be created.",
+        "parameters": [
+          {
+            "name": "listId",
+            "in": "path",
+            "description": "Identifier of the list.",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "x-api-version",
+            "in": "header",
+            "description": "Versioning header",
+            "schema": {
+              "type": "string",
+              "default": "2"
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "Request to save a list item.",
+          "content": {
+            "application/json-patch+json": {
+              "schema": {
+                "$ref": "#/components/schemas/SaveListItemRequest"
+              }
+            },
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SaveListItemRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SaveListItemRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/SaveListItemRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "401": {
+            "description": "Unauthorized"
+          },
+          "200": {
+            "description": "Response for a successful update.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SaveListItemResponse"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Response for a successful insert.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SaveListItemResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Client doesn't have update access to the resource.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "List or list item (if updating) could not be found or doesn't exist.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/Lists/id/{listId}/itemId/{itemId}": {
+      "delete": {
+        "tags": [
+          "Lists"
+        ],
+        "summary": "Removes the specific item from the list.",
+        "parameters": [
+          {
+            "name": "listId",
+            "in": "path",
+            "description": "Identifier of the list.",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "itemId",
+            "in": "path",
+            "description": "Identifier of the list item.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "x-api-version",
+            "in": "header",
+            "description": "Versioning header",
+            "schema": {
+              "type": "string",
+              "default": "2"
+            }
+          }
+        ],
+        "responses": {
+          "401": {
+            "description": "Unauthorized"
+          },
+          "204": {
+            "description": "Response for a successful removal."
+          },
+          "403": {
+            "description": "Client doesn't have update access to the resource.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "List/Item could not be found or doesn't exist."
+          }
+        }
+      }
+    },
+    "/Ping": {
+      "get": {
+        "tags": [
+          "Ping"
+        ],
+        "summary": "Gets a response indicating if the API is up or not.",
+        "parameters": [
+          {
+            "name": "x-api-version",
+            "in": "header",
+            "description": "Versioning header",
+            "schema": {
+              "type": "string",
+              "default": "2"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          }
+        }
+      }
+    },
+    "/Records/appId/{appId}": {
+      "get": {
+        "tags": [
+          "Records"
+        ],
+        "summary": "Gets a collection of records for a given app.",
+        "parameters": [
+          {
+            "name": "appId",
+            "in": "path",
+            "description": "Identifier of the app.",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "fieldIds",
+            "in": "query",
+            "description": "Comma-separated list of field identifiers.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "dataFormat",
+            "in": "query",
+            "description": "Format of outputted data. Default value is raw.",
+            "schema": {
+              "$ref": "#/components/schemas/ApiDataFormat"
+            }
+          },
+          {
+            "name": "PageNumber",
+            "in": "query",
+            "description": "Page number being requested.\r\nDefault value is 1.",
+            "schema": {
+              "maximum": 2147483647,
+              "minimum": 0,
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "PageSize",
+            "in": "query",
+            "description": "Count of items requested in the page.\r\nDefault value is 50. Max value is 1,000.",
+            "schema": {
+              "maximum": 1000,
+              "minimum": 0,
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "x-api-version",
+            "in": "header",
+            "description": "Versioning header",
+            "schema": {
+              "type": "string",
+              "default": "2"
+            }
+          }
+        ],
+        "responses": {
+          "401": {
+            "description": "Unauthorized"
+          },
+          "200": {
+            "description": "Returns the requested records for the application.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetPagedRecordsResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid paging information/size of the data requested was too large."
+          },
+          "403": {
+            "description": "Client doesn't have read access to the app.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/Records/appId/{appId}/recordId/{recordId}": {
+      "get": {
+        "tags": [
+          "Records"
+        ],
+        "summary": "Gets a record by its identifier.",
+        "parameters": [
+          {
+            "name": "appId",
+            "in": "path",
+            "description": "Identifier of the app.",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "recordId",
+            "in": "path",
+            "description": "Identifier of the record.",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "fieldIds",
+            "in": "query",
+            "description": "Comma-separated list of field identifiers.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "dataFormat",
+            "in": "query",
+            "description": "Format of outputted data. Default value is raw.",
+            "schema": {
+              "$ref": "#/components/schemas/ApiDataFormat"
+            }
+          },
+          {
+            "name": "x-api-version",
+            "in": "header",
+            "description": "Versioning header",
+            "schema": {
+              "type": "string",
+              "default": "2"
+            }
+          }
+        ],
+        "responses": {
+          "401": {
+            "description": "Unauthorized"
+          },
+          "200": {
+            "description": "Returns the requested record.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecordModel"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Client doesn't have read access to the app.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Record could not be found or doesn't exist."
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Records"
+        ],
+        "summary": "Deletes a record.",
+        "parameters": [
+          {
+            "name": "appId",
+            "in": "path",
+            "description": "Identifier of the app.",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "recordId",
+            "in": "path",
+            "description": "Identifier of the record.",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "x-api-version",
+            "in": "header",
+            "description": "Versioning header",
+            "schema": {
+              "type": "string",
+              "default": "2"
+            }
+          }
+        ],
+        "responses": {
+          "401": {
+            "description": "Unauthorized"
+          },
+          "204": {
+            "description": "Response for a successful delete."
+          },
+          "403": {
+            "description": "Client doesn't have delete access to the app.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Record could not be found or doesn't exist."
+          }
+        }
+      }
+    },
+    "/Records/batch-get": {
+      "post": {
+        "tags": [
+          "Records"
+        ],
+        "summary": "Gets a batch of records.",
+        "parameters": [
+          {
+            "name": "x-api-version",
+            "in": "header",
+            "description": "Versioning header",
+            "schema": {
+              "type": "string",
+              "default": "2"
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "Request to get a batch of records.",
+          "content": {
+            "application/json-patch+json": {
+              "schema": {
+                "$ref": "#/components/schemas/BatchGetRecordsRequest"
+              }
+            },
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BatchGetRecordsRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BatchGetRecordsRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/BatchGetRecordsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "401": {
+            "description": "Unauthorized"
+          },
+          "200": {
+            "description": "Returns the requested records.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetRecordsResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Batch get request is invalid/size of the data requested was too large."
+          },
+          "403": {
+            "description": "Client doesn't have read access to the app.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/Records/Query": {
+      "post": {
+        "tags": [
+          "Records"
+        ],
+        "summary": "Queries the various records.",
+        "parameters": [
+          {
+            "name": "PageNumber",
+            "in": "query",
+            "description": "Page number being requested.\r\nDefault value is 1.",
+            "schema": {
+              "maximum": 2147483647,
+              "minimum": 0,
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "PageSize",
+            "in": "query",
+            "description": "Count of items requested in the page.\r\nDefault value is 50. Max value is 1,000.",
+            "schema": {
+              "maximum": 1000,
+              "minimum": 0,
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "x-api-version",
+            "in": "header",
+            "description": "Versioning header",
+            "schema": {
+              "type": "string",
+              "default": "2"
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "Request to query records.",
+          "content": {
+            "application/json-patch+json": {
+              "schema": {
+                "$ref": "#/components/schemas/QueryRecordsRequest"
+              }
+            },
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/QueryRecordsRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/QueryRecordsRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/QueryRecordsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "401": {
+            "description": "Unauthorized"
+          },
+          "200": {
+            "description": "Returns the requested record.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetPagedRecordsResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Query request/paging information is invalid/size of the data requested was too large."
+          },
+          "403": {
+            "description": "Client doesn't have read access to the app.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/Records": {
+      "put": {
+        "tags": [
+          "Records"
+        ],
+        "summary": "Saves the provided record. If an Id is provided, we'll update it, otherwise a new record will be created.",
+        "parameters": [
+          {
+            "name": "x-api-version",
+            "in": "header",
+            "description": "Versioning header",
+            "schema": {
+              "type": "string",
+              "default": "2"
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "Save record request.",
+          "content": {
+            "application/json-patch+json": {
+              "schema": {
+                "$ref": "#/components/schemas/SaveRecordRequest"
+              }
+            },
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SaveRecordRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SaveRecordRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/SaveRecordRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "401": {
+            "description": "Unauthorized"
+          },
+          "200": {
+            "description": "Response for an update.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SaveRecordResponse"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Response for an insert.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SaveRecordResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Client doesn't have create/update access to the app.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Record could not be found or doesn't exist.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/Records/batch-delete": {
+      "post": {
+        "tags": [
+          "Records"
+        ],
+        "summary": "Deletes a batch of records for a given app.\r\nOnly deletes records the user has access to.",
+        "parameters": [
+          {
+            "name": "x-api-version",
+            "in": "header",
+            "description": "Versioning header",
+            "schema": {
+              "type": "string",
+              "default": "2"
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "Delete batch of records request.",
+          "content": {
+            "application/json-patch+json": {
+              "schema": {
+                "$ref": "#/components/schemas/BatchDeleteRecordsRequest"
+              }
+            },
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BatchDeleteRecordsRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BatchDeleteRecordsRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/BatchDeleteRecordsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "401": {
+            "description": "Unauthorized"
+          },
+          "204": {
+            "description": "Response for a successful batch delete."
+          },
+          "400": {
+            "description": "Invalid request provided."
+          },
+          "403": {
+            "description": "Client doesn't have delete access to the app.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/Reports/id/{reportId}": {
+      "get": {
+        "tags": [
+          "Reports"
+        ],
+        "summary": "Gets the report for the provided reportId.",
+        "parameters": [
+          {
+            "name": "reportId",
+            "in": "path",
+            "description": "Identifier of the report.",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "apiDataFormat",
+            "in": "query",
+            "description": "Format of outputted data. Default value is raw.",
+            "schema": {
+              "$ref": "#/components/schemas/ApiDataFormat"
+            }
+          },
+          {
+            "name": "dataType",
+            "in": "query",
+            "description": "Report's data type. Default value is ReportData.",
+            "schema": {
+              "$ref": "#/components/schemas/ApiReportDataType"
+            }
+          },
+          {
+            "name": "x-api-version",
+            "in": "header",
+            "description": "Versioning header",
+            "schema": {
+              "type": "string",
+              "default": "2"
+            }
+          }
+        ],
+        "responses": {
+          "401": {
+            "description": "Unauthorized"
+          },
+          "200": {
+            "description": "Returns report response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetReportResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Request is invalid based on underlying data. Example: charts data types require aggregation."
+          },
+          "403": {
+            "description": "Client doesn't have read access to the app.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Report could not be found or doesn't exist."
+          }
+        }
+      }
+    },
+    "/Reports/appId/{appId}": {
+      "get": {
+        "tags": [
+          "Reports"
+        ],
+        "summary": "Gets the reports for the provided appId.",
+        "parameters": [
+          {
+            "name": "appId",
+            "in": "path",
+            "description": "Identifier of the app.",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "PageNumber",
+            "in": "query",
+            "description": "Page number being requested.\r\nDefault value is 1.",
+            "schema": {
+              "maximum": 2147483647,
+              "minimum": 0,
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "PageSize",
+            "in": "query",
+            "description": "Count of items requested in the page.\r\nDefault value is 50. Max value is 1,000.",
+            "schema": {
+              "maximum": 1000,
+              "minimum": 0,
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "x-api-version",
+            "in": "header",
+            "description": "Versioning header",
+            "schema": {
+              "type": "string",
+              "default": "2"
+            }
+          }
+        ],
+        "responses": {
+          "401": {
+            "description": "Unauthorized"
+          },
+          "200": {
+            "description": "Returns the requested reports by the provided app identifier.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetReportsForAppResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Client doesn't have read access to the app."
+          },
+          "403": {
+            "description": "Invalid paging information.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "ApiDataFormat": {
+        "enum": [
+          "Raw",
+          "Formatted"
+        ],
+        "type": "string",
+        "format": "int32"
+      },
+      "ApiReportDataType": {
+        "enum": [
+          "ReportData",
+          "ChartData"
+        ],
+        "type": "string",
+        "format": "int32"
+      },
+      "ApiValueType": {
+        "enum": [
+          "String",
+          "Integer",
+          "Decimal",
+          "Date",
+          "TimeSpan",
+          "Guid",
+          "StringList",
+          "IntegerList",
+          "GuidList",
+          "AttachmentList",
+          "ScoringGroupList",
+          "FileList"
+        ],
+        "type": "string",
+        "format": "int32"
+      },
+      "AppModel": {
+        "type": "object",
+        "properties": {
+          "href": {
+            "type": "string",
+            "description": "URI of the application.",
+            "nullable": true
+          },
+          "id": {
+            "type": "integer",
+            "description": "App identifier.",
+            "format": "int32"
+          },
+          "name": {
+            "type": "string",
+            "description": "Name of the app.",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false,
+        "description": "Represents an app."
+      },
+      "AppModelCollectionResponse": {
+        "type": "object",
+        "properties": {
+          "count": {
+            "type": "integer",
+            "description": "Total count of items in the response.",
+            "format": "int32",
+            "readOnly": true
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AppModel"
+            },
+            "description": "Collection of items.",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false,
+        "description": "Represents the base class for a response containing a collection\r\nof items."
+      },
+      "AppModelPagedResponse": {
+        "type": "object",
+        "properties": {
+          "pageNumber": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "pageSize": {
+            "type": "integer",
+            "format": "int32",
+            "readOnly": true
+          },
+          "totalPages": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalRecords": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AppModel"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false,
+        "description": "Represents a response to request that has paged items."
+      },
+      "BatchDeleteRecordsRequest": {
+        "required": [
+          "AppId",
+          "RecordIds"
+        ],
+        "type": "object",
+        "properties": {
+          "appId": {
+            "type": "integer",
+            "description": "Associated app identifier.",
+            "format": "int32"
+          },
+          "recordIds": {
+            "maxItems": 100,
+            "minItems": 1,
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "format": "int32"
+            },
+            "description": "Collection of record identifiers to delete.\r\nMax is 100."
+          }
+        },
+        "additionalProperties": false,
+        "description": "Represents a request to delete a batch of records."
+      },
+      "BatchGetRecordsRequest": {
+        "required": [
+          "AppId",
+          "RecordIds"
+        ],
+        "type": "object",
+        "properties": {
+          "appId": {
+            "type": "integer",
+            "description": "Associated app identifier.",
+            "format": "int32"
+          },
+          "recordIds": {
+            "maxItems": 100,
+            "minItems": 1,
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "format": "int32"
+            },
+            "description": "Collection of record identifiers to get.\r\nMax is 100."
+          },
+          "fieldIds": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "format": "int32"
+            },
+            "description": "Collection of field identifiers.",
+            "nullable": true
+          },
+          "dataFormat": {
+            "$ref": "#/components/schemas/ApiDataFormat"
+          }
+        },
+        "additionalProperties": false,
+        "description": "Represents a request to get a batch of records."
+      },
+      "FieldModel": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "description": "Field's identifier.",
+            "format": "int32"
+          },
+          "appId": {
+            "type": "integer",
+            "description": "Associated app identifier.",
+            "format": "int32"
+          },
+          "name": {
+            "type": "string",
+            "description": "Field name.",
+            "nullable": true
+          },
+          "type": {
+            "type": "string",
+            "description": "Field type.",
+            "nullable": true
+          },
+          "status": {
+            "type": "string",
+            "description": "Field status.",
+            "nullable": true
+          },
+          "isRequired": {
+            "type": "boolean",
+            "description": "Represents if this is a required field or not."
+          },
+          "isUnique": {
+            "type": "boolean",
+            "description": "Represents if this is a unique field or not."
+          }
+        },
+        "additionalProperties": false,
+        "description": "Represents a field."
+      },
+      "FieldModelCollectionResponse": {
+        "type": "object",
+        "properties": {
+          "count": {
+            "type": "integer",
+            "description": "Total count of items in the response.",
+            "format": "int32",
+            "readOnly": true
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FieldModel"
+            },
+            "description": "Collection of items.",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false,
+        "description": "Represents the base class for a response containing a collection\r\nof items."
+      },
+      "FieldModelPagedResponse": {
+        "type": "object",
+        "properties": {
+          "pageNumber": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "pageSize": {
+            "type": "integer",
+            "format": "int32",
+            "readOnly": true
+          },
+          "totalPages": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalRecords": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FieldModel"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false,
+        "description": "Represents a response to request that has paged items."
+      },
+      "FieldResultValue": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "$ref": "#/components/schemas/ApiValueType"
+          },
+          "fieldId": {
+            "type": "integer",
+            "format": "int32",
+            "readOnly": true
+          },
+          "value": {
+            "nullable": true,
+            "readOnly": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "FormulaFieldModel": {
+        "type": "object",
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/FieldModel"
+          }
+        ],
+        "properties": {
+          "outputType": {
+            "$ref": "#/components/schemas/FormulaFieldOutputType"
+          },
+          "values": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ListFieldValueModel"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "FormulaFieldOutputType": {
+        "enum": [
+          "Text",
+          "Numeric",
+          "DateAndTime",
+          "ListValue"
+        ],
+        "type": "string",
+        "format": "int32"
+      },
+      "GetAppsResponse": {
+        "type": "object",
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/AppModelCollectionResponse"
+          }
+        ],
+        "additionalProperties": false,
+        "description": "Represents the response for getting applications"
+      },
+      "GetFieldsResponse": {
+        "type": "object",
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/FieldModelCollectionResponse"
+          }
+        ],
+        "additionalProperties": false,
+        "description": "Represents the response for getting fields."
+      },
+      "GetFileInfoResponse": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "description": "Represents the type of file.",
+            "nullable": true
+          },
+          "contentType": {
+            "type": "string",
+            "description": "Represents the file's content type.",
+            "nullable": true
+          },
+          "name": {
+            "type": "string",
+            "description": "Name of the file.",
+            "nullable": true
+          },
+          "createdDate": {
+            "type": "string",
+            "description": "Date the file was created.",
+            "format": "date-time"
+          },
+          "modifiedDate": {
+            "type": "string",
+            "description": "Date the file was modified.",
+            "format": "date-time"
+          },
+          "owner": {
+            "type": "string",
+            "description": "Owner of the file.",
+            "nullable": true
+          },
+          "notes": {
+            "type": "string",
+            "description": "File's notes. Only used for Attachment fields.",
+            "nullable": true
+          },
+          "fileHref": {
+            "type": "string",
+            "description": "URI to the file's data.",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false,
+        "description": "Response including a file's information."
+      },
+      "GetPagedAppsResponse": {
+        "type": "object",
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/AppModelPagedResponse"
+          }
+        ],
+        "additionalProperties": false,
+        "description": "Represents the response for getting applications"
+      },
+      "GetPagedFieldsResponse": {
+        "type": "object",
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/FieldModelPagedResponse"
+          }
+        ],
+        "additionalProperties": false,
+        "description": "Represents the paged response for getting fields."
+      },
+      "GetPagedRecordsResponse": {
+        "type": "object",
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/RecordModelPagedResponse"
+          }
+        ],
+        "additionalProperties": false,
+        "description": "Represents a response for getting records associated to an app."
+      },
+      "GetRecordsResponse": {
+        "type": "object",
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/RecordModelCollectionResponse"
+          }
+        ],
+        "additionalProperties": false,
+        "description": "Represents a response for getting a collection of records."
+      },
+      "GetReportByAppModel": {
+        "type": "object",
+        "properties": {
+          "appId": {
+            "type": "integer",
+            "description": "Report's primary app identifier.",
+            "format": "int32"
+          },
+          "id": {
+            "type": "integer",
+            "description": "Report identifier.",
+            "format": "int32"
+          },
+          "name": {
+            "type": "string",
+            "description": "Name of the report.",
+            "nullable": true
+          },
+          "description": {
+            "type": "string",
+            "description": "Description of the report.",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false,
+        "description": "Represents a report associated to an app."
+      },
+      "GetReportByAppModelPagedResponse": {
+        "type": "object",
+        "properties": {
+          "pageNumber": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "pageSize": {
+            "type": "integer",
+            "format": "int32",
+            "readOnly": true
+          },
+          "totalPages": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalRecords": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GetReportByAppModel"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false,
+        "description": "Represents a response to request that has paged items."
+      },
+      "GetReportResponse": {
+        "type": "object",
+        "properties": {
+          "columns": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true
+          },
+          "rows": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ReportRow"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false,
+        "description": "Represents a response for getting a report."
+      },
+      "GetReportsForAppResponse": {
+        "type": "object",
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/GetReportByAppModelPagedResponse"
+          }
+        ],
+        "additionalProperties": false,
+        "description": "Represents a response for getting the reports associated to an app."
+      },
+      "GuidCreatedWithIdResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Identifier returned.",
+            "format": "uuid"
+          }
+        },
+        "additionalProperties": false,
+        "description": "Represents a response to creating a resource that returns an identifier."
+      },
+      "Int32CreatedWithIdResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "description": "Identifier returned.",
+            "format": "int32"
+          }
+        },
+        "additionalProperties": false,
+        "description": "Represents a response to creating a resource that returns an identifier."
+      },
+      "ListFieldModel": {
+        "type": "object",
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/FieldModel"
+          }
+        ],
+        "properties": {
+          "multiplicity": {
+            "$ref": "#/components/schemas/Multiplicity"
+          },
+          "listId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "values": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ListFieldValueModel"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "ListFieldValueModel": {
+        "required": [
+          "Name"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Identifier of the list item.",
+            "format": "uuid"
+          },
+          "name": {
+            "minLength": 1,
+            "type": "string",
+            "description": "Name of the list item."
+          },
+          "sortOrder": {
+            "type": "integer",
+            "description": "The order of list items.",
+            "format": "int32"
+          },
+          "numericValue": {
+            "type": "number",
+            "description": "Numeric value of the list item, if any.",
+            "format": "double",
+            "nullable": true
+          },
+          "color": {
+            "type": "string",
+            "description": "Color of the list item.",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false,
+        "description": "Represents a value in a list."
+      },
+      "MessageResponse": {
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string",
+            "description": "Gets the message in the response.",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false,
+        "description": "Represents a response which includes a message."
+      },
+      "Multiplicity": {
+        "enum": [
+          "SingleSelect",
+          "MultiSelect"
+        ],
+        "type": "string",
+        "format": "int32"
+      },
+      "QueryRecordsRequest": {
+        "required": [
+          "AppId",
+          "Filter"
+        ],
+        "type": "object",
+        "properties": {
+          "appId": {
+            "type": "integer",
+            "description": "App identifier.",
+            "format": "int32"
+          },
+          "filter": {
+            "minLength": 1,
+            "type": "string",
+            "description": "Filter text."
+          },
+          "fieldIds": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "format": "int32"
+            },
+            "description": "Collection of field identifiers.",
+            "nullable": true
+          },
+          "dataFormat": {
+            "$ref": "#/components/schemas/ApiDataFormat"
+          }
+        },
+        "additionalProperties": false,
+        "description": "Represents a request to query records."
+      },
+      "RecordModel": {
+        "type": "object",
+        "properties": {
+          "appId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "recordId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "fieldData": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FieldResultValue"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "RecordModelCollectionResponse": {
+        "type": "object",
+        "properties": {
+          "count": {
+            "type": "integer",
+            "description": "Total count of items in the response.",
+            "format": "int32",
+            "readOnly": true
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RecordModel"
+            },
+            "description": "Collection of items.",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false,
+        "description": "Represents the base class for a response containing a collection\r\nof items."
+      },
+      "RecordModelPagedResponse": {
+        "type": "object",
+        "properties": {
+          "pageNumber": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "pageSize": {
+            "type": "integer",
+            "format": "int32",
+            "readOnly": true
+          },
+          "totalPages": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalRecords": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RecordModel"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false,
+        "description": "Represents a response to request that has paged items."
+      },
+      "ReferenceFieldModel": {
+        "type": "object",
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/FieldModel"
+          }
+        ],
+        "properties": {
+          "multiplicity": {
+            "$ref": "#/components/schemas/Multiplicity"
+          },
+          "referencedAppId": {
+            "type": "integer",
+            "description": "Represents which app the reference field is for.",
+            "format": "int32"
+          }
+        },
+        "additionalProperties": false
+      },
+      "ReportRow": {
+        "type": "object",
+        "properties": {
+          "recordId": {
+            "type": "integer",
+            "description": "Internal record identifier, if applicable.",
+            "format": "int32",
+            "nullable": true
+          },
+          "cells": {
+            "type": "array",
+            "items": { },
+            "description": "Collection of cells for the row.",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false,
+        "description": "Represents a row in a report."
+      },
+      "SaveListItemRequest": {
+        "required": [
+          "Name"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Represents the identifier of the list item, if any. For inserting list items, this should be null.",
+            "format": "uuid",
+            "nullable": true
+          },
+          "name": {
+            "minLength": 1,
+            "type": "string",
+            "description": "Name of the list item."
+          },
+          "numericValue": {
+            "type": "number",
+            "description": "Numeric value of the list item, if any.",
+            "format": "double",
+            "nullable": true
+          },
+          "color": {
+            "pattern": "^#(?:[0-9a-fA-F]{3}){1,2}$",
+            "type": "string",
+            "description": "Color of the list item. Must be in hexadecimal format.\r\nDefault value is #ffffff.",
+            "nullable": true,
+            "example": "#ffffff"
+          }
+        },
+        "additionalProperties": false,
+        "description": "Represents a request to add a list item to an existing list."
+      },
+      "SaveListItemResponse": {
+        "type": "object",
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/GuidCreatedWithIdResponse"
+          }
+        ],
+        "additionalProperties": false,
+        "description": "Represents the response for saving a list item."
+      },
+      "SaveRecordRequest": {
+        "required": [
+          "AppId",
+          "Fields"
+        ],
+        "type": "object",
+        "properties": {
+          "appId": {
+            "type": "integer",
+            "description": "Associated app identifier.",
+            "format": "int32"
+          },
+          "recordId": {
+            "type": "integer",
+            "description": "Record identifier if the request is to update.",
+            "format": "int32",
+            "nullable": true
+          },
+          "fields": {
+            "type": "object",
+            "additionalProperties": {
+              "nullable": true
+            },
+            "description": "Fields for the record."
+          }
+        },
+        "additionalProperties": false,
+        "description": "Represents a record to save a record."
+      },
+      "SaveRecordResponse": {
+        "type": "object",
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/Int32CreatedWithIdResponse"
+          }
+        ],
+        "properties": {
+          "warnings": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false,
+        "description": "Represents a response to saving a record."
+      }
+    },
+    "securitySchemes": {
+      "ApiKey": {
+        "type": "apiKey",
+        "description": "Authorization header using an Api Key. Input your Api Key in the text input without trailing/leading whitespace.",
+        "name": "X-ApiKey",
+        "in": "header"
+      }
+    }
+  },
+  "security": [
+    {
+      "ApiKey": [ ]
+    }
+  ]
+}
