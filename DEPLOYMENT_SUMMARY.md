@@ -322,3 +322,11 @@ For issues or questions:
 - Added CloudFormation CreateChangeSet permission for SAM Transform
 - Resource: `arn:aws:cloudformation:us-east-1:aws:transform/Serverless-2016-10-31`
 - Required for CloudFormation to execute SAM template transformations
+
+### IAM Role Pattern Fix
+**IAM Policy Update** (v3 → v4):
+- Fixed IAM role resource patterns to match CloudFormation's naming
+- Changed from: `arrms-onspring-integration-*`
+- Changed to: `arrms-onspring-integratio-*`
+- CloudFormation truncates stack names and adds logical resource IDs with random suffixes
+- This allows proper tagging of Lambda execution roles during deployment
