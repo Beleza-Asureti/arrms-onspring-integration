@@ -212,10 +212,10 @@ class OnspringClient:
 
         Args:
             app_id: Onspring application ID
-            field_data: Record field data
+            field_data: Record field data (dict with field IDs as keys)
 
         Returns:
-            Created record response
+            Created record response with 'id' field
 
         Raises:
             OnspringAPIError: If API request fails
@@ -226,10 +226,10 @@ class OnspringClient:
 
             payload = {
                 "appId": app_id,
-                "fieldData": field_data
+                "fields": field_data
             }
 
-            response = self.session.post(url, json=payload, timeout=30)
+            response = self.session.put(url, json=payload, timeout=30)
             response.raise_for_status()
 
             data = response.json()
@@ -244,35 +244,38 @@ class OnspringClient:
             logger.error(f"Request error creating record: {str(e)}")
             raise OnspringAPIError(f"Request failed: {str(e)}")
 
-    def update_record(self, record_id: int, field_data: Dict[str, Any]) -> Dict[str, Any]:
+    def update_record(self, app_id: int, record_id: int, field_data: Dict[str, Any]) -> Dict[str, Any]:
         """
         Update an existing record in Onspring.
 
         Args:
+            app_id: Onspring application ID
             record_id: Record ID to update
-            field_data: Updated field data
+            field_data: Updated field data (dict with field IDs as keys)
 
         Returns:
-            Update response
+            Update response with 'id' field
 
         Raises:
             OnspringAPIError: If API request fails
         """
         try:
-            url = f"{self.base_url}/Records/{record_id}"
-            logger.info(f"Updating record {record_id}")
+            url = f"{self.base_url}/Records"
+            logger.info(f"Updating record {record_id} in app {app_id}")
 
             payload = {
-                "id": record_id,
-                "fieldData": field_data
+                "appId": app_id,
+                "recordId": record_id,
+                "fields": field_data
             }
 
             response = self.session.put(url, json=payload, timeout=30)
             response.raise_for_status()
 
+            data = response.json()
             logger.info(f"Updated record {record_id}")
 
-            return response.json() if response.text else {"id": record_id, "status": "updated"}
+            return data
 
         except requests.HTTPError as e:
             logger.error(f"HTTP error updating record: {str(e)}")
@@ -281,11 +284,12 @@ class OnspringClient:
             logger.error(f"Request error updating record: {str(e)}")
             raise OnspringAPIError(f"Request failed: {str(e)}")
 
-    def delete_record(self, record_id: int) -> bool:
+    def delete_record(self, app_id: int, record_id: int) -> bool:
         """
         Delete a record from Onspring.
 
         Args:
+            app_id: Onspring application ID
             record_id: Record ID to delete
 
         Returns:
@@ -295,8 +299,8 @@ class OnspringClient:
             OnspringAPIError: If API request fails
         """
         try:
-            url = f"{self.base_url}/Records/{record_id}"
-            logger.info(f"Deleting record {record_id}")
+            url = f"{self.base_url}/Records/appId/{app_id}/recordId/{record_id}"
+            logger.info(f"Deleting record {record_id} from app {app_id}")
 
             response = self.session.delete(url, timeout=30)
             response.raise_for_status()
