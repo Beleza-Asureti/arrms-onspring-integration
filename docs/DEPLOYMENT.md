@@ -76,7 +76,7 @@ Configure these secrets in your GitHub repository:
 
 | Secret Name | Description | Example Value |
 |-------------|-------------|---------------|
-| `ONSPRING_API_URL` | Onspring API base URL | `https://api.onspring.com/v2` |
+| `ONSPRING_API_URL` | Onspring API base URL | `https://api.onspring.com` |
 | `ARRMS_API_URL` | ARRMS API base URL | `https://api.arrms.example.com` |
 
 **Note**: API keys are stored in AWS Secrets Manager, not GitHub Secrets.
@@ -178,7 +178,7 @@ During `sam deploy --guided`, you'll be prompted for:
 - **Stack Name**: `arrms-onspring-integration-dev`
 - **AWS Region**: `us-east-1`
 - **Parameter Environment**: `dev`
-- **Parameter OnspringApiUrl**: `https://api.onspring.com/v2`
+- **Parameter OnspringApiUrl**: `https://api.onspring.com`
 - **Parameter OnspringApiKeySecretName**: `/arrms-integration/onspring/api-key`
 - **Parameter ArrmsApiUrl**: Your ARRMS API URL
 - **Parameter ArrmsApiKeySecretName**: `/arrms-integration/arrms/api-key`

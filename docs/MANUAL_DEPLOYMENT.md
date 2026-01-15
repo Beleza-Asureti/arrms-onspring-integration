@@ -39,7 +39,7 @@ AWS_PROFILE=dev-asureti sam deploy \
   --s3-prefix arrms-onspring-integration-dev \
   --parameter-overrides \
     Environment=dev \
-    OnspringApiUrl=https://api.onspring.com/v2 \
+    OnspringApiUrl=https://api.onspring.com \
     OnspringApiKeySecretName=/arrms-integration/onspring/api-key \
     ArrmsApiUrl=https://api.arrms.placeholder.local \
     ArrmsApiKeySecretName=/arrms-integration/arrms/api-key \
@@ -98,7 +98,7 @@ Expected response:
 | Parameter | Description | Example |
 |-----------|-------------|---------|
 | `Environment` | Deployment environment | `dev`, `staging`, `prod` |
-| `OnspringApiUrl` | Onspring API base URL | `https://api.onspring.com/v2` |
+| `OnspringApiUrl` | Onspring API base URL | `https://api.onspring.com` |
 | `OnspringApiKeySecretName` | AWS Secrets Manager secret name | `/arrms-integration/onspring/api-key` |
 | `ArrmsApiUrl` | ARRMS API base URL | `https://api.arrms.yourdomain.com` |
 | `ArrmsApiKeySecretName` | AWS Secrets Manager secret name | `/arrms-integration/arrms/api-key` |
@@ -117,7 +117,7 @@ AWS_PROFILE=dev-asureti sam deploy \
   --resolve-s3 \
   --parameter-overrides \
     Environment=dev \
-    OnspringApiUrl=https://api.onspring.com/v2 \
+    OnspringApiUrl=https://api.onspring.com \
     OnspringApiKeySecretName=/arrms-integration/dev/onspring/api-key \
     ArrmsApiUrl=https://api.arrms.dev.yourdomain.com \
     ArrmsApiKeySecretName=/arrms-integration/dev/arrms/api-key \
@@ -135,7 +135,7 @@ AWS_PROFILE=prod-asureti sam deploy \
   --resolve-s3 \
   --parameter-overrides \
     Environment=prod \
-    OnspringApiUrl=https://api.onspring.com/v2 \
+    OnspringApiUrl=https://api.onspring.com \
     OnspringApiKeySecretName=/arrms-integration/prod/onspring/api-key \
     ArrmsApiUrl=https://api.arrms.yourdomain.com \
     ArrmsApiKeySecretName=/arrms-integration/prod/arrms/api-key \
@@ -157,7 +157,7 @@ AWS_PROFILE=dev-asureti sam deploy \
   --resolve-s3 \
   --parameter-overrides \
     Environment=dev \
-    OnspringApiUrl=https://api.onspring.com/v2 \
+    OnspringApiUrl=https://api.onspring.com \
     ArrmsApiUrl=https://api.arrms.NEW-URL.com \
     OnspringApiKeySecretName=/arrms-integration/onspring/api-key \
     ArrmsApiKeySecretName=/arrms-integration/arrms/api-key \
@@ -174,7 +174,7 @@ AWS_PROFILE=dev-asureti sam deploy \
   --resolve-s3 \
   --parameter-overrides \
     Environment=dev \
-    OnspringApiUrl=https://api.onspring.com/v2 \
+    OnspringApiUrl=https://api.onspring.com \
     OnspringApiKeySecretName=/arrms-integration/onspring/api-key \
     ArrmsApiUrl=https://api.arrms.placeholder.local \
     ArrmsApiKeySecretName=/arrms-integration/arrms/api-key \

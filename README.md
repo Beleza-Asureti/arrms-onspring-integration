@@ -276,7 +276,7 @@ Health check endpoint.
 |----------|-------------|----------|---------|
 | `ENVIRONMENT` | Environment name (dev/staging/prod) | No | `dev` |
 | `LOG_LEVEL` | Logging level | No | `INFO` |
-| `ONSPRING_API_URL` | Onspring API base URL | No | `https://api.onspring.com/v2` |
+| `ONSPRING_API_URL` | Onspring API base URL | No | `https://api.onspring.com` |
 | `ONSPRING_API_KEY_SECRET` | Secrets Manager secret name for Onspring API key | Yes | - |
 | `ARRMS_API_URL` | ARRMS API base URL | Yes | - |
 | `ARRMS_API_KEY_SECRET` | Secrets Manager secret name for ARRMS API key | Yes | - |

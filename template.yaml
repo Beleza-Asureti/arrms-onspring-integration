@@ -29,7 +29,7 @@ Parameters:
 
   OnspringApiUrl:
     Type: String
-    Default: https://api.onspring.com/v2
+    Default: https://api.onspring.com
     Description: Onspring API base URL
 
   OnspringApiKeySecretName:

@@ -61,7 +61,7 @@ The ARRMS-Onspring Integration Service has been successfully deployed to AWS wit
 **Repository**: https://github.com/Beleza-Asureti/arrms-onspring-integration
 
 **GitHub Secrets Configured**:
-- ✅ `ONSPRING_API_URL`: `https://api.onspring.com/v2`
+- ✅ `ONSPRING_API_URL`: `https://api.onspring.com`
 - ⚠️ `ARRMS_API_URL`: `https://api.arrms.placeholder.local` (update when available)
 
 **GitHub Actions Workflow**: `.github/workflows/deploy.yml`

@@ -19,7 +19,7 @@ class Settings(BaseSettings):
 
     # Onspring Configuration
     onspring_api_url: str = Field(
-        default="https://api.onspring.com/v2",
+        default="https://api.onspring.com",
         alias="ONSPRING_API_URL"
     )
     onspring_api_key_secret: str = Field(
