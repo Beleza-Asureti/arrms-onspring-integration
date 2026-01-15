@@ -30,7 +30,7 @@ class OnspringClient:
 
     def __init__(self):
         """Initialize Onspring client with configuration from environment."""
-        self.base_url = os.environ.get('ONSPRING_API_URL', 'https://api.onspring.com/v2')
+        self.base_url = os.environ.get('ONSPRING_API_URL', 'https://api.onspring.com')
         self.api_key_secret_name = os.environ.get('ONSPRING_API_KEY_SECRET')
 
         if not self.api_key_secret_name:
@@ -91,7 +91,7 @@ class OnspringClient:
 
         # Set default headers
         session.headers.update({
-            'x-apikey': self.api_key,
+            'X-ApiKey': self.api_key,
             'x-api-version': '2',
             'Content-Type': 'application/json'
         })
