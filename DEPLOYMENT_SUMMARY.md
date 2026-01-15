@@ -316,3 +316,9 @@ For issues or questions:
 **IAM Policy Update** (v1 → v2):
 - Added CloudFormation permissions for SAM CLI managed stack
 - Required for SAM to create S3 bucket for deployment artifacts
+
+### Additional Permission Fix
+**IAM Policy Update** (v2 → v3):
+- Added CloudFormation CreateChangeSet permission for SAM Transform
+- Resource: `arn:aws:cloudformation:us-east-1:aws:transform/Serverless-2016-10-31`
+- Required for CloudFormation to execute SAM template transformations
