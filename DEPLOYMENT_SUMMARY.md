@@ -300,3 +300,19 @@ For issues or questions:
 **Deployed By**: SAM CLI with dev-asureti profile
 **Stack Status**: CREATE_COMPLETE → UPDATE_COMPLETE
 **Last Updated**: 2026-01-14 19:01 UTC
+
+---
+
+## Updates - 2026-01-15
+
+### GitHub Actions CI/CD Pipeline Fixes
+
+**Issues Resolved**:
+1. SAM template validation - removed `--lint` flag due to W3005 warnings
+2. SAM validate - added `--region` parameter 
+3. SAM deploy - added `--resolve-s3` flag for artifact upload
+4. IAM permissions - updated policy to include `aws-sam-cli-managed-default` stack
+
+**IAM Policy Update** (v1 → v2):
+- Added CloudFormation permissions for SAM CLI managed stack
+- Required for SAM to create S3 bucket for deployment artifacts
