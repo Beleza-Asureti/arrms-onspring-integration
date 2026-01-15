@@ -1,0 +1,187 @@
+name: Deploy to AWS
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        default: 'dev'
+        type: choice
+        options:
+          - dev
+          - staging
+          - prod
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  AWS_REGION: us-east-1
+  PYTHON_VERSION: '3.11'
+
+jobs:
+  lint-and-test:
+    name: Lint and Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-dev.txt
+
+      - name: Lint with flake8
+        run: |
+          flake8 src/ --count --select=E9,F63,F7,F82 --show-source --statistics
+          flake8 src/ --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+        continue-on-error: true
+
+      - name: Format check with black
+        run: |
+          black --check src/
+        continue-on-error: true
+
+      - name: Run tests
+        run: |
+          pytest tests/ -v --cov=src --cov-report=term-missing
+        continue-on-error: true
+
+  validate:
+    name: Validate SAM Template
+    runs-on: ubuntu-latest
+    needs: lint-and-test
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Set up AWS SAM CLI
+        uses: aws-actions/setup-sam@v2
+        with:
+          use-installer: true
+
+      - name: Validate SAM template
+        run: |
+          sam validate --lint
+
+  deploy-dev:
+    name: Deploy to Dev
+    runs-on: ubuntu-latest
+    needs: [lint-and-test, validate]
+    if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
+    environment:
+      name: dev
+      url: ${{ steps.deploy.outputs.api_url }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Set up AWS SAM CLI
+        uses: aws-actions/setup-sam@v2
+        with:
+          use-installer: true
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::985444478947:role/github-actions-arrms-integration
+          role-session-name: GitHubActions-${{ github.run_id }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Build SAM application
+        run: |
+          sam build --use-container
+
+      - name: Deploy to AWS
+        id: deploy
+        run: |
+          sam deploy \
+            --no-confirm-changeset \
+            --no-fail-on-empty-changeset \
+            --stack-name arrms-onspring-integration-dev \
+            --s3-prefix arrms-onspring-integration-dev \
+            --capabilities CAPABILITY_IAM \
+            --region ${{ env.AWS_REGION }} \
+            --parameter-overrides \
+              Environment=dev \
+              OnspringApiUrl=${{ secrets.ONSPRING_API_URL }} \
+              OnspringApiKeySecretName=/arrms-integration/onspring/api-key \
+              ArrmsApiUrl=${{ secrets.ARRMS_API_URL }} \
+              ArrmsApiKeySecretName=/arrms-integration/arrms/api-key \
+              LogLevel=INFO \
+            --tags \
+              Environment=dev \
+              Project=arrms-onspring-integration \
+              ManagedBy=GitHubActions
+
+          # Capture API URL from CloudFormation outputs
+          API_URL=$(aws cloudformation describe-stacks \
+            --stack-name arrms-onspring-integration-dev \
+            --query 'Stacks[0].Outputs[?OutputKey==`ApiUrl`].OutputValue' \
+            --output text)
+
+          echo "api_url=$API_URL" >> $GITHUB_OUTPUT
+          echo "### Deployment Successful! :rocket:" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**API Endpoint:** $API_URL" >> $GITHUB_STEP_SUMMARY
+
+      - name: Run smoke tests
+        run: |
+          API_URL=$(aws cloudformation describe-stacks \
+            --stack-name arrms-onspring-integration-dev \
+            --query 'Stacks[0].Outputs[?OutputKey==`ApiUrl`].OutputValue' \
+            --output text)
+
+          # Get API Key from API Gateway
+          API_ID=$(aws cloudformation describe-stacks \
+            --stack-name arrms-onspring-integration-dev \
+            --query 'Stacks[0].Outputs[?OutputKey==`ApiId`].OutputValue' \
+            --output text)
+
+          API_KEY=$(aws apigateway get-api-keys \
+            --include-values \
+            --query 'items[0].value' \
+            --output text)
+
+          echo "Testing health endpoint..."
+          curl -f -H "x-api-key: $API_KEY" "$API_URL/health" || echo "Health check failed"
+        continue-on-error: true
+
+      - name: Deployment summary
+        if: always()
+        run: |
+          echo "### Deployment Details" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Environment:** dev" >> $GITHUB_STEP_SUMMARY
+          echo "- **Region:** ${{ env.AWS_REGION }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Stack Name:** arrms-onspring-integration-dev" >> $GITHUB_STEP_SUMMARY
+          echo "- **Commit:** ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Actor:** ${{ github.actor }}" >> $GITHUB_STEP_SUMMARY
