@@ -84,7 +84,7 @@ jobs:
 
       - name: Validate SAM template
         run: |
-          sam validate
+          sam validate --region ${{ env.AWS_REGION }}
 
   deploy-dev:
     name: Deploy to Dev
