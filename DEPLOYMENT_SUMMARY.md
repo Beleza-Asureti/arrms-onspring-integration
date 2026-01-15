@@ -330,3 +330,10 @@ For issues or questions:
 - Changed to: `arrms-onspring-integratio-*`
 - CloudFormation truncates stack names and adds logical resource IDs with random suffixes
 - This allows proper tagging of Lambda execution roles during deployment
+
+### CloudFormation Naming Patterns Fix
+**IAM Policy Update** (v4 → v5):
+- Added support for multiple CloudFormation role naming patterns
+- Pattern 1: `arrms-onspring-integration*` (full stack name with double dash)
+- Pattern 2: `arrms-onspring-integratio-*` (truncated stack name)
+- CloudFormation uses different patterns for creates vs updates
