@@ -1,0 +1,66 @@
+version = 0.1
+
+# SAM Configuration Template
+# Copy this file to samconfig.toml and update with your values
+
+[default]
+[default.global.parameters]
+stack_name = "arrms-onspring-integration-dev"
+region = "us-east-1"
+
+[default.build.parameters]
+cached = true
+parallel = true
+
+[default.validate.parameters]
+lint = true
+
+[default.deploy.parameters]
+capabilities = "CAPABILITY_IAM"
+confirm_changeset = true
+resolve_s3 = true
+s3_prefix = "arrms-onspring-integration-dev"
+parameter_overrides = [
+    "Environment=dev",
+    "OnspringApiUrl=https://api.onspring.com/v2",
+    "OnspringApiKeySecretName=/arrms-integration/onspring/api-key",
+    "ArrmsApiUrl=https://api.arrms.example.com",
+    "ArrmsApiKeySecretName=/arrms-integration/arrms/api-key",
+    "LogLevel=INFO"
+]
+tags = [
+    "Environment=dev",
+    "Project=arrms-onspring-integration",
+    "ManagedBy=SAM"
+]
+
+[default.local_invoke.parameters]
+event = "events/onspring-webhook-event.json"
+
+[default.local_start_api.parameters]
+warm_containers = "EAGER"
+
+[dev]
+[dev.deploy.parameters]
+stack_name = "arrms-onspring-integration-dev"
+parameter_overrides = [
+    "Environment=dev",
+    "LogLevel=DEBUG"
+]
+
+[staging]
+[staging.deploy.parameters]
+stack_name = "arrms-onspring-integration-staging"
+parameter_overrides = [
+    "Environment=staging",
+    "LogLevel=INFO"
+]
+
+[prod]
+[prod.deploy.parameters]
+stack_name = "arrms-onspring-integration-prod"
+confirm_changeset = true
+parameter_overrides = [
+    "Environment=prod",
+    "LogLevel=WARNING"
+]
