@@ -13,7 +13,7 @@ cached = true
 parallel = true
 
 [default.validate.parameters]
-lint = true
+# lint = true  # Disabled due to SAM auto-generated redundant DependsOn warnings
 
 [default.deploy.parameters]
 capabilities = "CAPABILITY_IAM"

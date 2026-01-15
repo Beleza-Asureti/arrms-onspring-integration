@@ -84,7 +84,7 @@ jobs:
 
       - name: Validate SAM template
         run: |
-          sam validate --lint
+          sam validate
 
   deploy-dev:
     name: Deploy to Dev
