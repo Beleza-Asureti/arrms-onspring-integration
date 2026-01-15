@@ -314,3 +314,124 @@ class OnspringClient:
         except requests.RequestException as e:
             logger.error(f"Request error deleting record: {str(e)}")
             raise OnspringAPIError(f"Request failed: {str(e)}")
+
+    def get_file_info(
+        self, record_id: int, field_id: int, file_id: int
+    ) -> Dict[str, Any]:
+        """
+        Get file attachment information from Onspring.
+
+        Args:
+            record_id: Record ID containing the file
+            field_id: Field ID of the file field
+            file_id: File ID to retrieve
+
+        Returns:
+            File information dictionary with metadata
+
+        Raises:
+            OnspringAPIError: If API request fails
+        """
+        try:
+            url = f"{self.base_url}/Files/recordId/{record_id}/fieldId/{field_id}/fileId/{file_id}"
+            logger.info(
+                f"Getting file info for file {file_id} in record {record_id}, field {field_id}"
+            )
+
+            response = self.session.get(url, timeout=30)
+            response.raise_for_status()
+
+            data = response.json()
+            logger.debug(
+                f"Retrieved file info for file {file_id}", extra={"data": data}
+            )
+
+            return data
+
+        except requests.HTTPError as e:
+            logger.error(f"HTTP error retrieving file info: {str(e)}")
+            raise OnspringAPIError(f"Failed to get file info: {str(e)}")
+        except requests.RequestException as e:
+            logger.error(f"Request error retrieving file info: {str(e)}")
+            raise OnspringAPIError(f"Request failed: {str(e)}")
+
+    def download_file(self, record_id: int, field_id: int, file_id: int) -> bytes:
+        """
+        Download file attachment content from Onspring.
+
+        Args:
+            record_id: Record ID containing the file
+            field_id: Field ID of the file field
+            file_id: File ID to download
+
+        Returns:
+            File content as bytes
+
+        Raises:
+            OnspringAPIError: If API request fails
+        """
+        try:
+            url = f"{self.base_url}/Files/recordId/{record_id}/fieldId/{field_id}/fileId/{file_id}/file"
+            logger.info(
+                f"Downloading file {file_id} from record {record_id}, field {field_id}"
+            )
+
+            response = self.session.get(url, timeout=60, stream=True)
+            response.raise_for_status()
+
+            file_content = response.content
+            logger.info(f"Downloaded file {file_id}, size: {len(file_content)} bytes")
+
+            return file_content
+
+        except requests.HTTPError as e:
+            logger.error(f"HTTP error downloading file: {str(e)}")
+            raise OnspringAPIError(f"Failed to download file: {str(e)}")
+        except requests.RequestException as e:
+            logger.error(f"Request error downloading file: {str(e)}")
+            raise OnspringAPIError(f"Request failed: {str(e)}")
+
+    def get_record_files(self, record_data: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """
+        Extract file attachment information from record field data.
+
+        Args:
+            record_data: Record data from get_record() or get_records()
+
+        Returns:
+            List of file attachment dictionaries with metadata
+
+        Note:
+            This method parses the fieldData array to find file/attachment fields
+            and extracts file metadata without downloading the actual files.
+        """
+        files = []
+        field_data = record_data.get("fieldData", [])
+
+        for field in field_data:
+            field_type = field.get("type")
+
+            # Check for file or attachment list types
+            if field_type in ["FileList", "AttachmentList"]:
+                field_id = field.get("fieldId")
+                value = field.get("value", [])
+
+                if isinstance(value, list):
+                    for file_item in value:
+                        file_info = {
+                            "record_id": record_data.get("recordId"),
+                            "field_id": field_id,
+                            "file_id": file_item.get("fileId"),
+                            "file_name": file_item.get("fileName"),
+                            "file_size": file_item.get("fileSize"),
+                            "content_type": file_item.get("contentType"),
+                            "notes": file_item.get("notes"),
+                        }
+                        files.append(file_info)
+                        logger.debug(
+                            f"Found file attachment: {file_info['file_name']}",
+                            extra={"file_info": file_info},
+                        )
+
+        logger.info(f"Found {len(files)} file attachments in record")
+        return files

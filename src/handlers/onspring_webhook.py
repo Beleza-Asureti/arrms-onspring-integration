@@ -99,10 +99,81 @@ def lambda_handler(event: Dict[str, Any], context: LambdaContext) -> Dict[str, A
         # Push to ARRMS (upsert - create or update)
         result = arrms_client.upsert_record(transformed_data)
 
+        # Process file attachments
+        files_synced = 0
+        files_failed = 0
+
+        try:
+            files = onspring_client.get_record_files(record_data)
+
+            if files:
+                logger.info(f"Processing {len(files)} file attachments")
+                arrms_record_id = result.get("id")
+
+                for file_info in files:
+                    try:
+                        # Download file from Onspring
+                        file_content = onspring_client.download_file(
+                            record_id=file_info["record_id"],
+                            field_id=file_info["field_id"],
+                            file_id=file_info["file_id"],
+                        )
+
+                        # Upload to ARRMS
+                        arrms_client.upload_file(
+                            record_id=arrms_record_id,
+                            file_content=file_content,
+                            file_name=file_info["file_name"],
+                            content_type=file_info["content_type"],
+                            metadata={
+                                "source": "onspring",
+                                "onspring_record_id": record_id,
+                                "onspring_field_id": file_info["field_id"],
+                                "onspring_file_id": file_info["file_id"],
+                                "notes": file_info.get("notes"),
+                            },
+                        )
+
+                        files_synced += 1
+                        logger.info(f"Synced file: {file_info['file_name']}")
+
+                    except Exception as file_error:
+                        files_failed += 1
+                        logger.error(
+                            f"Failed to sync file {file_info.get('file_name')}",
+                            extra={"error": str(file_error), "file_info": file_info},
+                        )
+
+                # Add file sync metrics
+                if files_synced > 0:
+                    metrics.add_metric(
+                        name="FilesSynced", unit=MetricUnit.Count, value=files_synced
+                    )
+                if files_failed > 0:
+                    metrics.add_metric(
+                        name="FilesSyncFailed",
+                        unit=MetricUnit.Count,
+                        value=files_failed,
+                    )
+
+        except Exception as files_error:
+            logger.error(
+                "Error processing file attachments", extra={"error": str(files_error)}
+            )
+            # Don't fail the entire webhook if file processing fails
+            # The record sync was successful
+
         # Add success metric
         metrics.add_metric(name="WebhookProcessed", unit=MetricUnit.Count, value=1)
 
-        logger.info("Successfully processed webhook", extra={"result": result})
+        logger.info(
+            "Successfully processed webhook",
+            extra={
+                "result": result,
+                "files_synced": files_synced,
+                "files_failed": files_failed,
+            },
+        )
 
         return build_response(
             status_code=200,
@@ -111,6 +182,8 @@ def lambda_handler(event: Dict[str, Any], context: LambdaContext) -> Dict[str, A
                 "recordId": record_id,
                 "appId": app_id,
                 "arrmsSynced": True,
+                "filesSynced": files_synced,
+                "filesFailed": files_failed,
             },
         )
 

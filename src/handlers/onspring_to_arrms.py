@@ -71,15 +71,25 @@ def lambda_handler(event: Dict[str, Any], context: LambdaContext) -> Dict[str, A
         )
 
         # Process and sync records
-        sync_results = sync_records_to_arrms(records=records, arrms_client=arrms_client)
+        sync_results = sync_records_to_arrms(
+            records=records, arrms_client=arrms_client, onspring_client=onspring_client
+        )
 
         # Log summary
         successful = sync_results["successful"]
         failed = sync_results["failed"]
+        files_synced = sync_results.get("files_synced", 0)
+        files_failed = sync_results.get("files_failed", 0)
 
         logger.info(
             "Sync completed",
-            extra={"total": total_records, "successful": successful, "failed": failed},
+            extra={
+                "total": total_records,
+                "successful": successful,
+                "failed": failed,
+                "files_synced": files_synced,
+                "files_failed": files_failed,
+            },
         )
 
         metrics.add_metric(
@@ -88,6 +98,14 @@ def lambda_handler(event: Dict[str, Any], context: LambdaContext) -> Dict[str, A
         metrics.add_metric(
             name="RecordsSyncedFailed", unit=MetricUnit.Count, value=failed
         )
+        if files_synced > 0:
+            metrics.add_metric(
+                name="FilesSynced", unit=MetricUnit.Count, value=files_synced
+            )
+        if files_failed > 0:
+            metrics.add_metric(
+                name="FilesSyncFailed", unit=MetricUnit.Count, value=files_failed
+            )
 
         return build_response(
             status_code=200,
@@ -97,6 +115,8 @@ def lambda_handler(event: Dict[str, Any], context: LambdaContext) -> Dict[str, A
                     "total_records": total_records,
                     "successful": successful,
                     "failed": failed,
+                    "files_synced": files_synced,
+                    "files_failed": files_failed,
                 },
                 "errors": sync_results.get("errors", []),
             },
@@ -147,14 +167,17 @@ def parse_event(event: Dict[str, Any]) -> Dict[str, Any]:
 
 @tracer.capture_method
 def sync_records_to_arrms(
-    records: List[Dict[str, Any]], arrms_client: ARRMSClient
+    records: List[Dict[str, Any]],
+    arrms_client: ARRMSClient,
+    onspring_client: OnspringClient,
 ) -> Dict[str, Any]:
     """
-    Sync a batch of records to ARRMS.
+    Sync a batch of records to ARRMS including file attachments.
 
     Args:
         records: List of Onspring records
         arrms_client: Initialized ARRMS client
+        onspring_client: Initialized Onspring client for file downloads
 
     Returns:
         Sync results with counts and errors
@@ -162,6 +185,8 @@ def sync_records_to_arrms(
     successful = 0
     failed = 0
     errors = []
+    files_synced = 0
+    files_failed = 0
 
     for record in records:
         try:
@@ -169,7 +194,61 @@ def sync_records_to_arrms(
             transformed_record = transform_record(record)
 
             # Push to ARRMS
-            arrms_client.upsert_record(transformed_record)
+            result = arrms_client.upsert_record(transformed_record)
+
+            # Process file attachments
+            try:
+                files = onspring_client.get_record_files(record)
+
+                if files:
+                    arrms_record_id = result.get("id")
+
+                    for file_info in files:
+                        try:
+                            # Download file from Onspring
+                            file_content = onspring_client.download_file(
+                                record_id=file_info["record_id"],
+                                field_id=file_info["field_id"],
+                                file_id=file_info["file_id"],
+                            )
+
+                            # Upload to ARRMS
+                            arrms_client.upload_file(
+                                record_id=arrms_record_id,
+                                file_content=file_content,
+                                file_name=file_info["file_name"],
+                                content_type=file_info["content_type"],
+                                metadata={
+                                    "source": "onspring",
+                                    "onspring_record_id": record.get("recordId"),
+                                    "onspring_field_id": file_info["field_id"],
+                                    "onspring_file_id": file_info["file_id"],
+                                    "notes": file_info.get("notes"),
+                                },
+                            )
+
+                            files_synced += 1
+                            logger.debug(f"Synced file: {file_info['file_name']}")
+
+                        except Exception as file_error:
+                            files_failed += 1
+                            logger.error(
+                                f"Failed to sync file {file_info.get('file_name')}",
+                                extra={
+                                    "error": str(file_error),
+                                    "file_info": file_info,
+                                },
+                            )
+
+            except Exception as files_error:
+                logger.error(
+                    "Error processing file attachments for record",
+                    extra={
+                        "record_id": record.get("recordId"),
+                        "error": str(files_error),
+                    },
+                )
+                # Don't fail the entire record sync if file processing fails
 
             successful += 1
 
@@ -179,7 +258,13 @@ def sync_records_to_arrms(
             errors.append(error_detail)
             logger.error("Failed to sync record", extra=error_detail)
 
-    return {"successful": successful, "failed": failed, "errors": errors}
+    return {
+        "successful": successful,
+        "failed": failed,
+        "errors": errors,
+        "files_synced": files_synced,
+        "files_failed": files_failed,
+    }
 
 
 def transform_record(onspring_record: Dict[str, Any]) -> Dict[str, Any]:

@@ -369,3 +369,75 @@ class ARRMSClient:
         except requests.RequestException as e:
             logger.error(f"Request error in batch create: {str(e)}")
             raise ARRMSAPIError(f"Request failed: {str(e)}")
+
+    def upload_file(
+        self,
+        record_id: str,
+        file_content: bytes,
+        file_name: str,
+        content_type: str,
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        """
+        Upload a file attachment to ARRMS record.
+
+        Args:
+            record_id: ARRMS record ID to attach file to
+            file_content: File content as bytes
+            file_name: Name of the file
+            content_type: MIME type of the file
+            metadata: Optional metadata (notes, source info, etc.)
+
+        Returns:
+            Upload response with file ID
+
+        Raises:
+            ARRMSAPIError: If API request fails
+
+        Note:
+            This is a placeholder implementation. The actual ARRMS file upload
+            API endpoint and payload format need to be confirmed when available.
+        """
+        try:
+            # TODO: Update this URL when ARRMS file upload API is available
+            url = f"{self.base_url}/records/{record_id}/files"
+            logger.info(
+                f"Uploading file '{file_name}' to ARRMS record {record_id} "
+                f"(size: {len(file_content)} bytes)"
+            )
+
+            # Prepare multipart form data
+            files = {"file": (file_name, file_content, content_type)}
+
+            # Prepare form data
+            data = {
+                "record_id": record_id,
+                "file_name": file_name,
+                "content_type": content_type,
+                "source": "onspring",
+                "uploaded_at": datetime.utcnow().isoformat(),
+            }
+
+            if metadata:
+                data["metadata"] = metadata
+
+            # TODO: Confirm if ARRMS expects multipart/form-data or JSON with base64
+            # Current implementation uses multipart/form-data
+            response = self.session.post(url, files=files, data=data, timeout=120)
+            response.raise_for_status()
+
+            result = response.json()
+            logger.info(
+                f"Uploaded file '{file_name}' to ARRMS, file ID: {result.get('file_id')}"
+            )
+
+            return result
+
+        except requests.HTTPError as e:
+            logger.error(f"HTTP error uploading file to ARRMS: {str(e)}")
+            if e.response is not None:
+                logger.error(f"Response body: {e.response.text}")
+            raise ARRMSAPIError(f"Failed to upload file: {str(e)}")
+        except requests.RequestException as e:
+            logger.error(f"Request error uploading file to ARRMS: {str(e)}")
+            raise ARRMSAPIError(f"Request failed: {str(e)}")
