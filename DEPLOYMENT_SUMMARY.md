@@ -337,3 +337,10 @@ For issues or questions:
 - Pattern 1: `arrms-onspring-integration*` (full stack name with double dash)
 - Pattern 2: `arrms-onspring-integratio-*` (truncated stack name)
 - CloudFormation uses different patterns for creates vs updates
+
+### API Gateway Tagging Permission
+**IAM Policy Update** (v5 → v6):
+- Added API Gateway tags resource permission
+- Resource: `arn:aws:apigateway:us-east-1::/tags/*`
+- Required for CloudFormation to tag API Gateway resources
+- Deleted v1, created v6 (IAM policy version limit is 5)
