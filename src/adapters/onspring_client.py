@@ -133,7 +133,7 @@ class OnspringClient:
             OnspringAPIError: If API request fails
         """
         try:
-            url = f"{self.base_url}/Records/{record_id}"
+            url = f"{self.base_url}/Records/appId/{app_id}/recordId/{record_id}"
             logger.info(f"Retrieving record {record_id} from app {app_id}")
 
             response = self.session.get(url, timeout=30)
