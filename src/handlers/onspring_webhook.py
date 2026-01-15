@@ -38,22 +38,48 @@ def lambda_handler(event: Dict[str, Any], context: LambdaContext) -> Dict[str, A
     try:
         logger.info("Received Onspring webhook event")
 
-        # Parse request body
-        body = json.loads(event.get('body', '{}'))
+        # Parse request body (Onspring sends an array of records)
+        body = json.loads(event.get('body', '[]'))
         logger.info("Webhook payload", extra={"payload": body})
 
-        # Extract event metadata
-        event_type = body.get('eventType')
-        record_id = body.get('recordId')
-        app_id = body.get('appId')
+        # Onspring REST API Outcome sends array like: [{"RecordId": "16"}]
+        if not isinstance(body, list) or len(body) == 0:
+            raise ValidationError("Expected non-empty array of records")
 
-        if not event_type or not record_id:
-            raise ValidationError("Missing required fields: eventType or recordId")
+        # Extract first record (Onspring typically sends one record per trigger)
+        record = body[0]
+        record_id = record.get('RecordId')
+
+        if not record_id:
+            raise ValidationError("Missing required field: RecordId")
+
+        # Convert to integer
+        try:
+            record_id = int(record_id)
+        except (ValueError, TypeError):
+            raise ValidationError(f"Invalid RecordId format: {record_id}")
+
+        # Get appId from query string parameters or environment variable
+        # This should be configured in the Onspring REST API Outcome URL
+        query_params = event.get('queryStringParameters') or {}
+        app_id = query_params.get('appId')
+
+        if not app_id:
+            # Try to get from environment variable as fallback
+            import os
+            app_id = os.environ.get('ONSPRING_DEFAULT_APP_ID')
+
+        if not app_id:
+            raise ValidationError("Missing appId - include ?appId=XXX in webhook URL")
+
+        try:
+            app_id = int(app_id)
+        except (ValueError, TypeError):
+            raise ValidationError(f"Invalid appId format: {app_id}")
 
         logger.info(
             "Processing webhook",
             extra={
-                "event_type": event_type,
                 "record_id": record_id,
                 "app_id": app_id
             }
@@ -61,21 +87,20 @@ def lambda_handler(event: Dict[str, Any], context: LambdaContext) -> Dict[str, A
 
         # Add metric for webhook received
         metrics.add_metric(name="WebhookReceived", unit=MetricUnit.Count, value=1)
-        metrics.add_metadata(key="event_type", value=event_type)
 
         # Initialize clients
         onspring_client = OnspringClient()
         arrms_client = ARRMSClient()
 
-        # Process based on event type
-        result = process_webhook_event(
-            event_type=event_type,
-            record_id=record_id,
-            app_id=app_id,
-            body=body,
-            onspring_client=onspring_client,
-            arrms_client=arrms_client
-        )
+        # Fetch full record from Onspring
+        logger.info(f"Fetching record {record_id} from Onspring app {app_id}")
+        record_data = onspring_client.get_record(app_id=app_id, record_id=record_id)
+
+        # Transform data for ARRMS
+        transformed_data = transform_onspring_to_arrms(record_data)
+
+        # Push to ARRMS (upsert - create or update)
+        result = arrms_client.upsert_record(transformed_data)
 
         # Add success metric
         metrics.add_metric(name="WebhookProcessed", unit=MetricUnit.Count, value=1)
@@ -87,7 +112,8 @@ def lambda_handler(event: Dict[str, Any], context: LambdaContext) -> Dict[str, A
             body={
                 "message": "Webhook processed successfully",
                 "recordId": record_id,
-                "eventType": event_type
+                "appId": app_id,
+                "arrmsSynced": True
             }
         )
 

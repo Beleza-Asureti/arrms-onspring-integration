@@ -57,6 +57,11 @@ Parameters:
       - CRITICAL
     Description: Application log level
 
+  OnspringDefaultAppId:
+    Type: String
+    Default: ""
+    Description: (Optional) Default Onspring App ID - can be overridden with ?appId= query parameter
+
 Globals:
   Function:
     Runtime: python3.11
@@ -68,6 +73,7 @@ Globals:
         LOG_LEVEL: !Ref LogLevel
         ONSPRING_API_URL: !Ref OnspringApiUrl
         ONSPRING_API_KEY_SECRET: !Ref OnspringApiKeySecretName
+        ONSPRING_DEFAULT_APP_ID: !Ref OnspringDefaultAppId
         ARRMS_API_URL: !Ref ArrmsApiUrl
         ARRMS_API_KEY_SECRET: !Ref ArrmsApiKeySecretName
         POWERTOOLS_SERVICE_NAME: arrms-onspring-integration
