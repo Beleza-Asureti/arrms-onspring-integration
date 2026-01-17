@@ -6,6 +6,7 @@ Can be triggered via API or scheduled execution.
 """
 
 import json
+from datetime import datetime
 from typing import Dict, Any, List, Optional
 from aws_lambda_powertools import Logger, Tracer, Metrics
 from aws_lambda_powertools.metrics import MetricUnit
@@ -193,16 +194,22 @@ def sync_records_to_arrms(
             # Transform record
             transformed_record = transform_record(record)
 
-            # Push to ARRMS
-            result = arrms_client.upsert_record(transformed_record)
+            # Upsert questionnaire by Onspring record ID
+            onspring_record_id = str(record.get("recordId"))
+            result = arrms_client.upsert_questionnaire(
+                external_id=onspring_record_id, data=transformed_record
+            )
+
+            arrms_questionnaire_id = result.get("id")
+            logger.info(
+                f"Synced Onspring record {onspring_record_id} to ARRMS questionnaire {arrms_questionnaire_id}"
+            )
 
             # Process file attachments
             try:
                 files = onspring_client.get_record_files(record)
 
                 if files:
-                    arrms_record_id = result.get("id")
-
                     for file_info in files:
                         try:
                             # Download file from Onspring
@@ -212,18 +219,21 @@ def sync_records_to_arrms(
                                 file_id=file_info["file_id"],
                             )
 
-                            # Upload to ARRMS
-                            arrms_client.upload_file(
-                                record_id=arrms_record_id,
+                            # Upload to ARRMS with external metadata
+                            arrms_client.upload_document(
+                                questionnaire_id=arrms_questionnaire_id,
                                 file_content=file_content,
                                 file_name=file_info["file_name"],
                                 content_type=file_info["content_type"],
-                                metadata={
-                                    "source": "onspring",
+                                external_id=str(
+                                    file_info["file_id"]
+                                ),  # Onspring file ID
+                                source_metadata={
                                     "onspring_record_id": record.get("recordId"),
                                     "onspring_field_id": file_info["field_id"],
                                     "onspring_file_id": file_info["file_id"],
                                     "notes": file_info.get("notes"),
+                                    "uploaded_at": datetime.utcnow().isoformat(),
                                 },
                             )
 
@@ -269,28 +279,72 @@ def sync_records_to_arrms(
 
 def transform_record(onspring_record: Dict[str, Any]) -> Dict[str, Any]:
     """
-    Transform Onspring record to ARRMS format.
+    Transform Onspring questionnaire record to ARRMS format.
 
-    This is a placeholder for data transformation logic.
-    Implement specific field mappings based on your data model.
+    Onspring Structure:
+    {
+        "recordId": 12345,
+        "appId": 100,
+        "fields": {
+            "Title": {"value": "SOC 2 Assessment", "fieldId": 101},
+            "Client": {"value": "Integrity Risk", "fieldId": 102},
+            "DueDate": {"value": "2025-03-31", "fieldId": 103},
+            "Status": {"value": "New", "fieldId": 104},
+            "Description": {"value": "Annual assessment", "fieldId": 105}
+        }
+    }
 
     Args:
         onspring_record: Raw record from Onspring
 
     Returns:
-        Transformed record for ARRMS
+        Transformed record for ARRMS with external system tracking
     """
-    # TODO: Implement actual transformation logic based on data models
+    from datetime import datetime
+
     logger.debug(
         "Transforming record", extra={"record_id": onspring_record.get("recordId")}
     )
 
-    # Placeholder transformation
+    fields = onspring_record.get("fields", {})
+
+    # Helper to extract field value
+    def get_field_value(field_name: str, default=None):
+        field_data = fields.get(field_name, {})
+        return field_data.get("value", default)
+
+    # Transform to ARRMS format
     transformed = {
-        "id": onspring_record.get("recordId"),
-        "source": "onspring",
-        "data": onspring_record,
-        "synced_at": None,  # Will be set by the client
+        # ARRMS core fields
+        "title": get_field_value("Title", "Untitled Questionnaire"),
+        "client_name": get_field_value("Client"),
+        "description": get_field_value("Description"),
+        "due_date": get_field_value("DueDate"),  # Assumes ISO format
+        # External system tracking
+        "external_id": str(onspring_record.get("recordId")),
+        "external_source": "onspring",
+        "external_metadata": {
+            "app_id": onspring_record.get("appId"),
+            "onspring_status": get_field_value("Status"),
+            "onspring_url": f"https://app.onspring.com/record/{onspring_record.get('recordId')}",
+            "field_ids": {
+                "title": fields.get("Title", {}).get("fieldId"),
+                "client": fields.get("Client", {}).get("fieldId"),
+                "due_date": fields.get("DueDate", {}).get("fieldId"),
+                "status": fields.get("Status", {}).get("fieldId"),
+                "description": fields.get("Description", {}).get("fieldId"),
+            },
+            "synced_at": datetime.utcnow().isoformat(),
+            "sync_type": "webhook",  # or "scheduled"
+        },
     }
+
+    logger.debug(
+        "Transformed Onspring record",
+        extra={
+            "onspring_id": onspring_record.get("recordId"),
+            "arrms_title": transformed["title"],
+        },
+    )
 
     return transformed

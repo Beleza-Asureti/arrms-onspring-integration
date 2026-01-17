@@ -51,6 +51,11 @@ class Settings(BaseSettings):
         default=100, description="Default batch size for bulk operations"
     )
 
+    # Field Mapping Configuration
+    onspring_questionnaire_app_id: Optional[int] = Field(
+        default=100, description="Onspring app ID for questionnaires"
+    )
+
     class Config:
         """Pydantic configuration."""
 

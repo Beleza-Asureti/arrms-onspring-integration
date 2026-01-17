@@ -98,7 +98,7 @@ class ARRMSClient:
         # Set default headers
         session.headers.update(
             {
-                "Authorization": f"Bearer {self.api_key}",
+                "X-API-Key": self.api_key,
                 "Content-Type": "application/json",
                 "Accept": "application/json",
             }
@@ -126,102 +126,134 @@ class ARRMSClient:
             logger.error(f"ARRMS health check failed: {str(e)}")
             raise ARRMSAPIError(f"Health check failed: {str(e)}")
 
-    def create_record(self, data: Dict[str, Any]) -> Dict[str, Any]:
+    def create_questionnaire(self, data: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Create a new record in ARRMS.
+        Create questionnaire in ARRMS with external system fields.
 
         Args:
-            data: Record data to create
+            data: Questionnaire data including external_id and external_source
 
         Returns:
-            Created record response
+            Created questionnaire response
 
         Raises:
             ARRMSAPIError: If API request fails
         """
         try:
-            url = f"{self.base_url}/records"
-            logger.info("Creating record in ARRMS")
+            url = f"{self.base_url}/api/v1/questionnaires"
+            logger.info("Creating questionnaire in ARRMS")
 
-            # Add metadata
+            # Payload includes external system tracking fields
             payload = {
-                **data,
-                "created_at": datetime.utcnow().isoformat(),
-                "source": "onspring",
+                "title": data.get("title"),
+                "client_name": data.get("client_name"),
+                "description": data.get("description"),
+                "due_date": data.get("due_date"),
+                # External system tracking
+                "external_id": data.get("external_id"),
+                "external_source": data.get("external_source", "onspring"),
+                "external_metadata": data.get("external_metadata", {}),
             }
 
             response = self.session.post(url, json=payload, timeout=30)
             response.raise_for_status()
 
             result = response.json()
-            logger.info(f"Created ARRMS record with ID {result.get('id')}")
+            logger.info(f"Created ARRMS questionnaire with ID {result.get('id')}")
 
             return result
 
         except requests.HTTPError as e:
-            logger.error(f"HTTP error creating ARRMS record: {str(e)}")
+            logger.error(f"HTTP error creating ARRMS questionnaire: {str(e)}")
             if e.response is not None:
                 logger.error(f"Response body: {e.response.text}")
-            raise ARRMSAPIError(f"Failed to create record: {str(e)}")
+            raise ARRMSAPIError(f"Failed to create questionnaire: {str(e)}")
         except requests.RequestException as e:
-            logger.error(f"Request error creating ARRMS record: {str(e)}")
+            logger.error(f"Request error creating ARRMS questionnaire: {str(e)}")
             raise ARRMSAPIError(f"Request failed: {str(e)}")
 
-    def update_record(self, data: Dict[str, Any]) -> Dict[str, Any]:
+    def update_questionnaire(self, arrms_id: str, data: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Update an existing record in ARRMS.
+        Update existing questionnaire in ARRMS.
 
         Args:
-            data: Record data with ID
+            arrms_id: ARRMS questionnaire ID
+            data: Updated questionnaire data
 
         Returns:
-            Updated record response
+            Updated questionnaire response
 
         Raises:
             ARRMSAPIError: If API request fails
         """
         try:
-            record_id = data.get("id")
-            if not record_id:
-                raise ValueError("Record ID is required for update")
+            url = f"{self.base_url}/api/v1/questionnaires/{arrms_id}"
+            logger.info(f"Updating ARRMS questionnaire {arrms_id}")
 
-            url = f"{self.base_url}/records/{record_id}"
-            logger.info(f"Updating ARRMS record {record_id}")
-
-            # Add metadata
-            payload = {
-                **data,
-                "updated_at": datetime.utcnow().isoformat(),
-                "source": "onspring",
-            }
-
-            response = self.session.put(url, json=payload, timeout=30)
+            response = self.session.put(url, json=data, timeout=30)
             response.raise_for_status()
 
-            result = (
-                response.json()
-                if response.text
-                else {"id": record_id, "status": "updated"}
-            )
-            logger.info(f"Updated ARRMS record {record_id}")
+            result = response.json()
+            logger.info(f"Updated ARRMS questionnaire {arrms_id}")
 
             return result
 
         except requests.HTTPError as e:
-            logger.error(f"HTTP error updating ARRMS record: {str(e)}")
+            logger.error(f"HTTP error updating ARRMS questionnaire: {str(e)}")
             if e.response is not None:
                 logger.error(f"Response body: {e.response.text}")
-            raise ARRMSAPIError(f"Failed to update record: {str(e)}")
+            raise ARRMSAPIError(f"Failed to update questionnaire: {str(e)}")
         except requests.RequestException as e:
-            logger.error(f"Request error updating ARRMS record: {str(e)}")
+            logger.error(f"Request error updating ARRMS questionnaire: {str(e)}")
             raise ARRMSAPIError(f"Request failed: {str(e)}")
 
-    def upsert_record(self, data: Dict[str, Any]) -> Dict[str, Any]:
+    def get_questionnaire_by_external_id(self, external_id: str) -> Optional[Dict[str, Any]]:
         """
-        Create or update a record in ARRMS (upsert operation).
+        Query questionnaire by Onspring record ID.
 
         Args:
-            data: Record data
+            external_id: Onspring record ID
+
+        Returns:
+            Questionnaire data if found, None otherwise
+
+        Raises:
+            ARRMSAPIError: If API request fails (other than 404)
+        """
+        try:
+            url = f"{self.base_url}/api/v1/questionnaires"
+            params = {
+                "external_source": "onspring",
+                "external_id": external_id,
+            }
+
+            response = self.session.get(url, params=params, timeout=10)
+
+            if response.status_code == 404:
+                return None
+
+            response.raise_for_status()
+            results = response.json()
+
+            # Should return single result or empty list
+            return results[0] if results else None
+
+        except requests.HTTPError as e:
+            if e.response and e.response.status_code == 404:
+                return None
+            logger.error(f"HTTP error querying questionnaire: {str(e)}")
+            raise ARRMSAPIError(f"Failed to query questionnaire: {str(e)}")
+        except requests.RequestException as e:
+            logger.error(f"Request error querying questionnaire: {str(e)}")
+            raise ARRMSAPIError(f"Request failed: {str(e)}")
+
+    def upsert_questionnaire(self, external_id: str, data: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Create or update questionnaire by Onspring ID.
+
+        Args:
+            external_id: Onspring record ID
+            data: Questionnaire data
 
         Returns:
             Upsert operation response
@@ -230,40 +262,23 @@ class ARRMSClient:
             ARRMSAPIError: If API request fails
         """
         try:
-            record_id = data.get("id")
+            # First, try to find existing questionnaire
+            existing = self.get_questionnaire_by_external_id(external_id)
 
-            # Check if record exists
-            if record_id and self._record_exists(record_id):
-                logger.info(f"Record {record_id} exists, updating")
-                return self.update_record(data)
+            if existing:
+                # Update existing
+                logger.info(f"Questionnaire with external_id {external_id} exists, updating")
+                return self.update_questionnaire(existing["id"], data)
             else:
-                logger.info("Record does not exist, creating")
-                return self.create_record(data)
+                # Create new
+                logger.info(f"Questionnaire with external_id {external_id} does not exist, creating")
+                return self.create_questionnaire(data)
 
         except ARRMSAPIError:
             raise
         except Exception as e:
             logger.error(f"Unexpected error during upsert: {str(e)}")
             raise ARRMSAPIError(f"Upsert operation failed: {str(e)}")
-
-    def _record_exists(self, record_id: str) -> bool:
-        """
-        Check if a record exists in ARRMS.
-
-        Args:
-            record_id: Record ID to check
-
-        Returns:
-            True if record exists, False otherwise
-        """
-        try:
-            url = f"{self.base_url}/records/{record_id}"
-            response = self.session.get(url, timeout=10)
-
-            return response.status_code == 200
-
-        except requests.RequestException:
-            return False
 
     def delete_record(self, record_id: str) -> bool:
         """
@@ -370,74 +385,62 @@ class ARRMSClient:
             logger.error(f"Request error in batch create: {str(e)}")
             raise ARRMSAPIError(f"Request failed: {str(e)}")
 
-    def upload_file(
+    def upload_document(
         self,
-        record_id: str,
+        questionnaire_id: str,
         file_content: bytes,
         file_name: str,
         content_type: str,
-        metadata: Optional[Dict[str, Any]] = None,
+        external_id: Optional[str] = None,
+        source_metadata: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
         """
-        Upload a file attachment to ARRMS record.
+        Upload document to ARRMS questionnaire with external system metadata.
 
         Args:
-            record_id: ARRMS record ID to attach file to
+            questionnaire_id: ARRMS questionnaire ID to attach document to
             file_content: File content as bytes
             file_name: Name of the file
             content_type: MIME type of the file
-            metadata: Optional metadata (notes, source info, etc.)
+            external_id: Optional Onspring file ID
+            source_metadata: Optional metadata from Onspring
 
         Returns:
-            Upload response with file ID
+            Upload response with document ID
 
         Raises:
             ARRMSAPIError: If API request fails
-
-        Note:
-            This is a placeholder implementation. The actual ARRMS file upload
-            API endpoint and payload format need to be confirmed when available.
         """
         try:
-            # TODO: Update this URL when ARRMS file upload API is available
-            url = f"{self.base_url}/records/{record_id}/files"
+            url = f"{self.base_url}/api/v1/questionnaires/{questionnaire_id}/documents"
             logger.info(
-                f"Uploading file '{file_name}' to ARRMS record {record_id} "
+                f"Uploading document '{file_name}' to ARRMS questionnaire {questionnaire_id} "
                 f"(size: {len(file_content)} bytes)"
             )
 
             # Prepare multipart form data
             files = {"file": (file_name, file_content, content_type)}
 
-            # Prepare form data
+            # Form data with external system tracking
             data = {
-                "record_id": record_id,
-                "file_name": file_name,
-                "content_type": content_type,
-                "source": "onspring",
-                "uploaded_at": datetime.utcnow().isoformat(),
+                "external_id": external_id or "",
+                "external_source": "onspring",
+                "source_metadata": json.dumps(source_metadata or {}),
             }
 
-            if metadata:
-                data["metadata"] = metadata
-
-            # TODO: Confirm if ARRMS expects multipart/form-data or JSON with base64
-            # Current implementation uses multipart/form-data
             response = self.session.post(url, files=files, data=data, timeout=120)
             response.raise_for_status()
 
             result = response.json()
-            logger.info(
-                f"Uploaded file '{file_name}' to ARRMS, file ID: {result.get('file_id')}"
-            )
+            logger.info(f"Uploaded document '{file_name}' to questionnaire {questionnaire_id}")
 
             return result
 
         except requests.HTTPError as e:
-            logger.error(f"HTTP error uploading file to ARRMS: {str(e)}")
+            logger.error(f"HTTP error uploading document to ARRMS: {str(e)}")
             if e.response is not None:
                 logger.error(f"Response body: {e.response.text}")
-            raise ARRMSAPIError(f"Failed to upload file: {str(e)}")
+            raise ARRMSAPIError(f"Failed to upload document: {str(e)}")
         except requests.RequestException as e:
-            logger.error(f"Request error uploading file to ARRMS: {str(e)}")
+            logger.error(f"Request error uploading document to ARRMS: {str(e)}")
             raise ARRMSAPIError(f"Request failed: {str(e)}")

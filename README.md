@@ -280,6 +280,7 @@ Health check endpoint.
 | `ONSPRING_API_KEY_SECRET` | Secrets Manager secret name for Onspring API key | Yes | - |
 | `ARRMS_API_URL` | ARRMS API base URL | Yes | - |
 | `ARRMS_API_KEY_SECRET` | Secrets Manager secret name for ARRMS API key | Yes | - |
+| `ONSPRING_QUESTIONNAIRE_APP_ID` | Onspring app ID for questionnaires | No | `100` |
 
 ### SAM Template Parameters
 
@@ -336,22 +337,53 @@ Lambda functions have minimal permissions:
 
 ## Data Transformation
 
-Data transformation logic is implemented in handler functions. Customize the `transform_onspring_to_arrms` and `transform_record` functions to map fields according to your data model.
+Data transformation logic maps Onspring questionnaire records to ARRMS questionnaires with external system tracking. The transformation is implemented in `src/handlers/onspring_to_arrms.py`.
 
-Example transformation (in `src/handlers/onspring_webhook.py`):
+### Field Mapping
+
+Onspring fields are mapped to ARRMS fields as follows:
+
+| Onspring Field | ARRMS Field | Notes |
+|----------------|-------------|-------|
+| `Title` | `title` | Required, defaults to "Untitled Questionnaire" |
+| `Client` | `client_name` | Optional |
+| `DueDate` | `due_date` | Optional, ISO 8601 format |
+| `Description` | `description` | Optional |
+| `Status` | `external_metadata.onspring_status` | Tracked in metadata |
+| `recordId` | `external_id` | Used for upsert operations |
+
+### External System Tracking
+
+All records include external system tracking fields:
 
 ```python
-def transform_onspring_to_arrms(onspring_data: Dict[str, Any]) -> Dict[str, Any]:
-    """Transform Onspring record to ARRMS format."""
-    return {
-        "id": onspring_data.get("recordId"),
-        "name": onspring_data.get("fields", {}).get("Name"),
-        "description": onspring_data.get("fields", {}).get("Description"),
-        "status": onspring_data.get("fields", {}).get("Status"),
-        "severity": onspring_data.get("fields", {}).get("Severity"),
-        "source": "onspring"
+{
+    "external_id": "12345",           # Onspring record ID
+    "external_source": "onspring",    # Source system identifier
+    "external_metadata": {
+        "app_id": 100,
+        "onspring_status": "New",
+        "onspring_url": "https://app.onspring.com/record/12345",
+        "field_ids": {...},           # Onspring field IDs for reverse mapping
+        "synced_at": "2025-01-17T10:30:00Z",
+        "sync_type": "webhook"
     }
+}
 ```
+
+### ARRMS API Integration
+
+The integration uses ARRMS's questionnaire endpoints with external system support:
+
+- **Create**: `POST /api/v1/questionnaires` - Creates new questionnaire
+- **Update**: `PUT /api/v1/questionnaires/{id}` - Updates existing questionnaire
+- **Query**: `GET /api/v1/questionnaires?external_source=onspring&external_id={id}` - Finds by Onspring ID
+- **Upsert**: Automatic create-or-update based on `external_id`
+- **Documents**: `POST /api/v1/questionnaires/{id}/documents` - Upload files with metadata
+
+### ARRMS Authentication
+
+ARRMS API uses **API Key authentication** with `X-API-Key` header (not Bearer token).
 
 ## Troubleshooting
 
