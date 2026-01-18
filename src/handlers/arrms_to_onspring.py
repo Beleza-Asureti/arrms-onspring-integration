@@ -465,22 +465,35 @@ def update_onspring_record(
         except ValueError:
             raise ValidationError(f"Invalid ONSPRING_DEFAULT_APP_ID: {app_id_str}")
 
-        # Get field ID mappings from environment
-        # Format: {"Field Name": field_id, ...}
-        field_mapping_json = os.environ.get("ONSPRING_FIELD_MAPPING", "{}")
+        # Get field ID mappings from environment or use demo defaults
+        # NOTE: Hardcoded for demo (App ID 248). For multi-tenant, see GitHub issue #4.
+        field_mapping_json = os.environ.get("ONSPRING_FIELD_MAPPING", "")
 
-        try:
-            field_mapping = json.loads(field_mapping_json)
-        except json.JSONDecodeError as e:
-            logger.error(
-                "Invalid ONSPRING_FIELD_MAPPING JSON",
-                extra={
-                    "error": str(e),
-                    "raw_value": field_mapping_json[:200],  # First 200 chars for debugging
-                    "length": len(field_mapping_json),
-                },
-            )
-            raise ValidationError(f"Invalid ONSPRING_FIELD_MAPPING JSON: {str(e)}")
+        if field_mapping_json and len(field_mapping_json) > 2:  # Has actual content
+            try:
+                field_mapping = json.loads(field_mapping_json)
+            except json.JSONDecodeError as e:
+                logger.warning(
+                    f"Invalid ONSPRING_FIELD_MAPPING JSON, using demo defaults: {str(e)}",
+                    extra={"raw_value": field_mapping_json[:200]},
+                )
+                field_mapping = None
+        else:
+            field_mapping = None
+
+        # Use hardcoded demo mapping if environment variable is invalid/empty
+        if not field_mapping:
+            field_mapping = {
+                "Total Assessment Questions": 14932,
+                "Complete Assessment Questions": 14934,
+                "Open Assessment Questions": 14933,
+                "High Confidence Questions": 14936,
+                "Medium-High Confidence": 14937,
+                "Medium-Low Confidence": 14938,
+                "Low Confidence Questions": 14939,
+                "Status": 14906,
+            }
+            logger.info("Using hardcoded field mapping for demo (App ID 248)")
 
         # Update each field
         for field_name, value in field_values.items():
