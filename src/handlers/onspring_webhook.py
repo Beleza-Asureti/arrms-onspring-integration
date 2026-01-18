@@ -6,6 +6,9 @@ This handler acts as the entry point for event-driven integration.
 """
 
 import json
+import os
+import tempfile
+from datetime import datetime
 from typing import Dict, Any
 from aws_lambda_powertools import Logger, Tracer, Metrics
 from aws_lambda_powertools.metrics import MetricUnit
@@ -42,13 +45,14 @@ def lambda_handler(event: Dict[str, Any], context: LambdaContext) -> Dict[str, A
         body = json.loads(event.get("body", "[]"))
         logger.info("Webhook payload", extra={"payload": body})
 
-        # Onspring REST API Outcome sends array like: [{"RecordId": "16"}]
+        # Onspring REST API Outcome sends array like: [{"RecordId": "16", "AppId": "100"}]
         if not isinstance(body, list) or len(body) == 0:
             raise ValidationError("Expected non-empty array of records")
 
         # Extract first record (Onspring typically sends one record per trigger)
         record = body[0]
         record_id = record.get("RecordId")
+        app_id = record.get("AppId")
 
         if not record_id:
             raise ValidationError("Missing required field: RecordId")
@@ -59,24 +63,18 @@ def lambda_handler(event: Dict[str, Any], context: LambdaContext) -> Dict[str, A
         except (ValueError, TypeError):
             raise ValidationError(f"Invalid RecordId format: {record_id}")
 
-        # Get appId from query string parameters or environment variable
-        # This should be configured in the Onspring REST API Outcome URL
-        query_params = event.get("queryStringParameters") or {}
-        app_id = query_params.get("appId")
-
+        # Get appId from body (Onspring should send it in the webhook payload)
         if not app_id:
             # Try to get from environment variable as fallback
-            import os
-
             app_id = os.environ.get("ONSPRING_DEFAULT_APP_ID")
 
         if not app_id:
-            raise ValidationError("Missing appId - include ?appId=XXX in webhook URL")
+            raise ValidationError("Missing AppId - ensure Onspring webhook includes AppId in body")
 
         try:
             app_id = int(app_id)
         except (ValueError, TypeError):
-            raise ValidationError(f"Invalid appId format: {app_id}")
+            raise ValidationError(f"Invalid AppId format: {app_id}")
 
         logger.info(
             "Processing webhook", extra={"record_id": record_id, "app_id": app_id}
@@ -93,75 +91,136 @@ def lambda_handler(event: Dict[str, Any], context: LambdaContext) -> Dict[str, A
         logger.info(f"Fetching record {record_id} from Onspring app {app_id}")
         record_data = onspring_client.get_record(app_id=app_id, record_id=record_id)
 
-        # Transform data for ARRMS
-        transformed_data = transform_onspring_to_arrms(record_data)
+        # Transform data to extract metadata
+        from handlers.onspring_to_arrms import transform_record
+        transformed_data = transform_record(record_data)
+        onspring_record_id = str(record_id)
 
-        # Push to ARRMS (upsert - create or update)
-        result = arrms_client.upsert_record(transformed_data)
+        # Get questionnaire files from Onspring
+        files = onspring_client.get_record_files(record_data)
 
-        # Process file attachments
+        # Find the main questionnaire file (look for Excel files)
+        questionnaire_file = None
+        additional_files = []
+
+        for file_info in files:
+            file_name = file_info.get("file_name", "")
+            if file_name.endswith((".xlsx", ".xls")):
+                # This is likely the questionnaire file
+                if not questionnaire_file:
+                    questionnaire_file = file_info
+                else:
+                    additional_files.append(file_info)
+            else:
+                # Other supporting documents
+                additional_files.append(file_info)
+
+        if not questionnaire_file:
+            raise ValidationError(
+                f"No Excel questionnaire file found for record {onspring_record_id}"
+            )
+
+        # Download questionnaire file from Onspring
+        file_content = onspring_client.download_file(
+            record_id=questionnaire_file["record_id"],
+            field_id=questionnaire_file["field_id"],
+            file_id=questionnaire_file["file_id"],
+        )
+
+        # Save to temporary file for upload
+        with tempfile.NamedTemporaryFile(
+            mode="wb", suffix=".xlsx", delete=False
+        ) as temp_file:
+            temp_file.write(file_content)
+            temp_file_path = temp_file.name
+
+        try:
+            # Upload questionnaire to ARRMS with external tracking
+            result = arrms_client.upload_questionnaire(
+                file_path=temp_file_path,
+                external_id=onspring_record_id,
+                external_source="onspring",
+                external_metadata=transformed_data.get("external_metadata", {}),
+                # Additional form fields from transformed record
+                requester_name=transformed_data.get("requester_name"),
+                urgency=transformed_data.get("urgency"),
+                assessment_type=transformed_data.get("assessment_type"),
+                due_date=transformed_data.get("due_date"),
+                notes=transformed_data.get("notes")
+                or transformed_data.get("description"),
+            )
+        finally:
+            # Clean up temp file
+            os.unlink(temp_file_path)
+
+        arrms_questionnaire_id = result.get("id")
+
+        # Verify external reference was created
+        external_ref = arrms_client.parse_external_reference(result, "onspring")
+        if external_ref:
+            logger.info(
+                f"Synced Onspring record {onspring_record_id} to ARRMS {arrms_questionnaire_id}",
+                extra={
+                    "external_reference_id": external_ref["id"],
+                    "external_id": external_ref["external_id"],
+                },
+            )
+        else:
+            logger.warning(
+                f"External reference not found in response for {onspring_record_id}"
+            )
+
+        # Process additional file attachments
         files_synced = 0
         files_failed = 0
 
-        try:
-            files = onspring_client.get_record_files(record_data)
+        if additional_files:
+            logger.info(f"Processing {len(additional_files)} additional file attachments")
 
-            if files:
-                logger.info(f"Processing {len(files)} file attachments")
-                arrms_record_id = result.get("id")
-
-                for file_info in files:
-                    try:
-                        # Download file from Onspring
-                        file_content = onspring_client.download_file(
-                            record_id=file_info["record_id"],
-                            field_id=file_info["field_id"],
-                            file_id=file_info["file_id"],
-                        )
-
-                        # Upload to ARRMS
-                        arrms_client.upload_file(
-                            record_id=arrms_record_id,
-                            file_content=file_content,
-                            file_name=file_info["file_name"],
-                            content_type=file_info["content_type"],
-                            metadata={
-                                "source": "onspring",
-                                "onspring_record_id": record_id,
-                                "onspring_field_id": file_info["field_id"],
-                                "onspring_file_id": file_info["file_id"],
-                                "notes": file_info.get("notes"),
-                            },
-                        )
-
-                        files_synced += 1
-                        logger.info(f"Synced file: {file_info['file_name']}")
-
-                    except Exception as file_error:
-                        files_failed += 1
-                        logger.error(
-                            f"Failed to sync file {file_info.get('file_name')}",
-                            extra={"error": str(file_error), "file_info": file_info},
-                        )
-
-                # Add file sync metrics
-                if files_synced > 0:
-                    metrics.add_metric(
-                        name="FilesSynced", unit=MetricUnit.Count, value=files_synced
-                    )
-                if files_failed > 0:
-                    metrics.add_metric(
-                        name="FilesSyncFailed",
-                        unit=MetricUnit.Count,
-                        value=files_failed,
+            for file_info in additional_files:
+                try:
+                    # Download file from Onspring
+                    file_content = onspring_client.download_file(
+                        record_id=file_info["record_id"],
+                        field_id=file_info["field_id"],
+                        file_id=file_info["file_id"],
                     )
 
-        except Exception as files_error:
-            logger.error(
-                "Error processing file attachments", extra={"error": str(files_error)}
-            )
-            # Don't fail the entire webhook if file processing fails
-            # The record sync was successful
+                    # Upload to ARRMS with external metadata
+                    arrms_client.upload_document(
+                        questionnaire_id=arrms_questionnaire_id,
+                        file_content=file_content,
+                        file_name=file_info["file_name"],
+                        content_type=file_info["content_type"],
+                        external_id=str(file_info["file_id"]),  # Onspring file ID
+                        source_metadata={
+                            "onspring_record_id": record_id,
+                            "onspring_field_id": file_info["field_id"],
+                            "onspring_file_id": file_info["file_id"],
+                            "notes": file_info.get("notes"),
+                            "uploaded_at": datetime.utcnow().isoformat(),
+                        },
+                    )
+
+                    files_synced += 1
+                    logger.info(f"Synced supporting file: {file_info['file_name']}")
+
+                except Exception as file_error:
+                    files_failed += 1
+                    logger.error(
+                        f"Failed to sync file {file_info.get('file_name')}",
+                        extra={"error": str(file_error), "file_info": file_info},
+                    )
+
+            # Add file sync metrics
+            if files_synced > 0:
+                metrics.add_metric(
+                    name="FilesSynced", unit=MetricUnit.Count, value=files_synced
+                )
+            if files_failed > 0:
+                metrics.add_metric(
+                    name="FilesSyncFailed", unit=MetricUnit.Count, value=files_failed
+                )
 
         # Add success metric
         metrics.add_metric(name="WebhookProcessed", unit=MetricUnit.Count, value=1)
@@ -169,7 +228,7 @@ def lambda_handler(event: Dict[str, Any], context: LambdaContext) -> Dict[str, A
         logger.info(
             "Successfully processed webhook",
             extra={
-                "result": result,
+                "arrms_questionnaire_id": arrms_questionnaire_id,
                 "files_synced": files_synced,
                 "files_failed": files_failed,
             },
@@ -209,80 +268,3 @@ def lambda_handler(event: Dict[str, Any], context: LambdaContext) -> Dict[str, A
             name="WebhookUnexpectedError", unit=MetricUnit.Count, value=1
         )
         return build_response(status_code=500, body={"error": "Internal server error"})
-
-
-@tracer.capture_method
-def process_webhook_event(
-    event_type: str,
-    record_id: int,
-    app_id: int,
-    body: Dict[str, Any],
-    onspring_client: OnspringClient,
-    arrms_client: ARRMSClient,
-) -> Dict[str, Any]:
-    """
-    Process webhook event based on event type.
-
-    Args:
-        event_type: Type of webhook event (e.g., 'RecordCreated', 'RecordUpdated')
-        record_id: Onspring record ID
-        app_id: Onspring application ID
-        body: Complete webhook payload
-        onspring_client: Initialized Onspring client
-        arrms_client: Initialized ARRMS client
-
-    Returns:
-        Processing result dictionary
-    """
-    logger.info(f"Processing event type: {event_type}")
-
-    # Handle different event types
-    if event_type in ["RecordCreated", "RecordUpdated"]:
-        # Retrieve full record data from Onspring
-        record_data = onspring_client.get_record(app_id=app_id, record_id=record_id)
-
-        # Transform data for ARRMS
-        transformed_data = transform_onspring_to_arrms(record_data)
-
-        # Push to ARRMS
-        if event_type == "RecordCreated":
-            result = arrms_client.create_record(transformed_data)
-        else:
-            result = arrms_client.update_record(transformed_data)
-
-        return result
-
-    elif event_type == "RecordDeleted":
-        # Handle record deletion
-        result = arrms_client.delete_record(record_id=record_id)
-        return result
-
-    else:
-        logger.warning(f"Unhandled event type: {event_type}")
-        return {"status": "ignored", "reason": f"Event type {event_type} not supported"}
-
-
-def transform_onspring_to_arrms(onspring_data: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    Transform Onspring record data to ARRMS format.
-
-    This is a placeholder for data transformation logic.
-    Implement specific field mappings based on your data model.
-
-    Args:
-        onspring_data: Raw data from Onspring
-
-    Returns:
-        Transformed data for ARRMS
-    """
-    # TODO: Implement actual transformation logic based on data models
-    logger.info("Transforming Onspring data to ARRMS format")
-
-    # Placeholder transformation
-    transformed = {
-        "id": onspring_data.get("recordId"),
-        "source": "onspring",
-        "data": onspring_data,
-    }
-
-    return transformed
