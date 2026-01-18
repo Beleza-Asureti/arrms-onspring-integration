@@ -59,13 +59,17 @@ Parameters:
 
   OnspringDefaultAppId:
     Type: String
-    Default: ""
-    Description: (Optional) Default Onspring App ID - can be overridden with ?appId= query parameter
+    Default: "248"
+    Description: |
+      Default Onspring App ID for ARRMS sync (can be overridden with ?appId= query parameter).
+      NOTE: Hardcoded for demo. For multi-tenant, see GitHub issue #4 for configuration utility design.
 
   OnspringFieldMapping:
     Type: String
-    Default: '{}'
-    Description: JSON mapping of Onspring field names to field IDs for ARRMS sync (e.g., {"Total Assessment Questions":12345})
+    Default: '{"Total Assessment Questions":14932,"Complete Assessment Questions":14934,"Open Assessment Questions":14933,"High Confidence Questions":14936,"Medium-High Confidence":14937,"Medium-Low Confidence":14938,"Low Confidence Questions":14939,"Status":14906}'
+    Description: |
+      JSON mapping of Onspring field names to field IDs for ARRMS sync.
+      NOTE: Hardcoded for demo (App ID 248). For multi-tenant, see GitHub issue #4.
 
 Globals:
   Function:

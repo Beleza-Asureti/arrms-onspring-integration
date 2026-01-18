@@ -177,12 +177,10 @@ For automated deployment via GitHub Actions, configure the required secrets in y
 
 1. Go to **Settings > Secrets and variables > Actions**
 2. Add the following repository secrets:
-   - `ONSPRING_API_URL`
-   - `ONSPRING_DEFAULT_APP_ID`
-   - `ONSPRING_FIELD_MAPPING`
-   - `ARRMS_API_URL`
+   - `ONSPRING_API_URL` - Your Onspring API base URL
+   - `ARRMS_API_URL` - Your ARRMS API base URL
 
-See [docs/GITHUB_SECRETS_SETUP.md](docs/GITHUB_SECRETS_SETUP.md) for detailed setup instructions.
+**Note**: `OnspringDefaultAppId` and `OnspringFieldMapping` are currently hardcoded in `template.yaml` for demo purposes (App ID 248). For multi-tenant production deployments, see [GitHub issue #4](https://github.com/Beleza-Asureti/arrms-onspring-integration/issues/4) for the configuration utility design.
 
 ## Local Development
 

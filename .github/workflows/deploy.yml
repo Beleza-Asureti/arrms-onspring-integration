@@ -119,8 +119,6 @@ jobs:
 
       - name: Deploy to AWS
         id: deploy
-        env:
-          FIELD_MAPPING: ${{ secrets.ONSPRING_FIELD_MAPPING }}
         run: |
           sam deploy \
             --no-confirm-changeset \
@@ -134,8 +132,6 @@ jobs:
               Environment=dev \
               OnspringApiUrl=${{ secrets.ONSPRING_API_URL }} \
               OnspringApiKeySecretName=/arrms-integration/onspring/api-key \
-              OnspringDefaultAppId=${{ secrets.ONSPRING_DEFAULT_APP_ID }} \
-              OnspringFieldMapping="${FIELD_MAPPING}" \
               ArrmsApiUrl=${{ secrets.ARRMS_API_URL }} \
               ArrmsApiKeySecretName=/arrms-integration/arrms/api-key \
               LogLevel=INFO \
