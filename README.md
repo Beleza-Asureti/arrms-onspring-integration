@@ -171,6 +171,19 @@ The `OnspringFieldMapping` parameter maps ARRMS field names to Onspring field ID
 
 To find your Onspring field IDs, use the Onspring API or inspect field configurations in the Onspring UI.
 
+### 6. GitHub Actions Deployment
+
+For automated deployment via GitHub Actions, configure the required secrets in your repository:
+
+1. Go to **Settings > Secrets and variables > Actions**
+2. Add the following repository secrets:
+   - `ONSPRING_API_URL`
+   - `ONSPRING_DEFAULT_APP_ID`
+   - `ONSPRING_FIELD_MAPPING`
+   - `ARRMS_API_URL`
+
+See [docs/GITHUB_SECRETS_SETUP.md](docs/GITHUB_SECRETS_SETUP.md) for detailed setup instructions.
+
 ## Local Development
 
 ### Run Functions Locally
