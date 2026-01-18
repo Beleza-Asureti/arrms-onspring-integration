@@ -16,7 +16,7 @@ from botocore.exceptions import ClientError
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
-from utils.exceptions import AuthenticationError, OnspringAPIError
+from src.utils.exceptions import AuthenticationError, OnspringAPIError
 
 logger = Logger(child=True)
 

@@ -15,10 +15,10 @@ from aws_lambda_powertools import Logger, Metrics, Tracer
 from aws_lambda_powertools.metrics import MetricUnit
 from aws_lambda_powertools.utilities.typing import LambdaContext
 
-from adapters.arrms_client import ARRMSClient
-from adapters.onspring_client import OnspringClient
-from utils.exceptions import IntegrationError, ValidationError
-from utils.response_builder import build_response
+from src.adapters.arrms_client import ARRMSClient
+from src.adapters.onspring_client import OnspringClient
+from src.utils.exceptions import IntegrationError, ValidationError
+from src.utils.response_builder import build_response
 
 logger = Logger()
 tracer = Tracer()
