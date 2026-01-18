@@ -6,6 +6,8 @@ Can be triggered via API or scheduled execution.
 """
 
 import json
+import os
+import tempfile
 from datetime import datetime
 from typing import Dict, Any, List, Optional
 from aws_lambda_powertools import Logger, Tracer, Metrics
@@ -191,74 +193,135 @@ def sync_records_to_arrms(
 
     for record in records:
         try:
-            # Transform record
+            # Transform record to extract metadata
             transformed_record = transform_record(record)
-
-            # Upsert questionnaire by Onspring record ID
             onspring_record_id = str(record.get("recordId"))
-            result = arrms_client.upsert_questionnaire(
-                external_id=onspring_record_id, data=transformed_record
-            )
 
-            arrms_questionnaire_id = result.get("id")
-            logger.info(
-                f"Synced Onspring record {onspring_record_id} to ARRMS questionnaire {arrms_questionnaire_id}"
-            )
+            # Get questionnaire files from Onspring
+            files = onspring_client.get_record_files(record)
 
-            # Process file attachments
-            try:
-                files = onspring_client.get_record_files(record)
+            # Find the main questionnaire file (look for Excel files)
+            questionnaire_file = None
+            additional_files = []
 
-                if files:
-                    for file_info in files:
-                        try:
-                            # Download file from Onspring
-                            file_content = onspring_client.download_file(
-                                record_id=file_info["record_id"],
-                                field_id=file_info["field_id"],
-                                file_id=file_info["file_id"],
-                            )
+            for file_info in files:
+                file_name = file_info.get("file_name", "")
+                if file_name.endswith((".xlsx", ".xls")):
+                    # This is likely the questionnaire file
+                    if not questionnaire_file:
+                        questionnaire_file = file_info
+                    else:
+                        additional_files.append(file_info)
+                else:
+                    # Other supporting documents
+                    additional_files.append(file_info)
 
-                            # Upload to ARRMS with external metadata
-                            arrms_client.upload_document(
-                                questionnaire_id=arrms_questionnaire_id,
-                                file_content=file_content,
-                                file_name=file_info["file_name"],
-                                content_type=file_info["content_type"],
-                                external_id=str(
-                                    file_info["file_id"]
-                                ),  # Onspring file ID
-                                source_metadata={
-                                    "onspring_record_id": record.get("recordId"),
-                                    "onspring_field_id": file_info["field_id"],
-                                    "onspring_file_id": file_info["file_id"],
-                                    "notes": file_info.get("notes"),
-                                    "uploaded_at": datetime.utcnow().isoformat(),
-                                },
-                            )
-
-                            files_synced += 1
-                            logger.debug(f"Synced file: {file_info['file_name']}")
-
-                        except Exception as file_error:
-                            files_failed += 1
-                            logger.error(
-                                f"Failed to sync file {file_info.get('file_name')}",
-                                extra={
-                                    "error": str(file_error),
-                                    "file_info": file_info,
-                                },
-                            )
-
-            except Exception as files_error:
-                logger.error(
-                    "Error processing file attachments for record",
-                    extra={
-                        "record_id": record.get("recordId"),
-                        "error": str(files_error),
-                    },
+            if not questionnaire_file:
+                logger.warning(
+                    f"No questionnaire file found for record {onspring_record_id}, skipping"
                 )
-                # Don't fail the entire record sync if file processing fails
+                failed += 1
+                errors.append({
+                    "record_id": onspring_record_id,
+                    "error": "No Excel questionnaire file found"
+                })
+                continue
+
+            # Download questionnaire file from Onspring
+            try:
+                file_content = onspring_client.download_file(
+                    record_id=questionnaire_file["record_id"],
+                    field_id=questionnaire_file["field_id"],
+                    file_id=questionnaire_file["file_id"],
+                )
+
+                # Save to temporary file for upload
+                with tempfile.NamedTemporaryFile(
+                    mode="wb", suffix=".xlsx", delete=False
+                ) as temp_file:
+                    temp_file.write(file_content)
+                    temp_file_path = temp_file.name
+
+                # Upload questionnaire to ARRMS with external tracking
+                result = arrms_client.upload_questionnaire(
+                    file_path=temp_file_path,
+                    external_id=onspring_record_id,
+                    external_source="onspring",
+                    external_metadata=transformed_record.get("external_metadata", {}),
+                    # Additional form fields from transformed record
+                    requester_name=transformed_record.get("requester_name"),
+                    urgency=transformed_record.get("urgency"),
+                    assessment_type=transformed_record.get("assessment_type"),
+                    due_date=transformed_record.get("due_date"),
+                    notes=transformed_record.get("notes") or transformed_record.get("description"),
+                )
+
+                # Clean up temp file
+                os.unlink(temp_file_path)
+
+                arrms_questionnaire_id = result.get("id")
+
+                # Verify external reference was created
+                external_ref = arrms_client.parse_external_reference(result, "onspring")
+                if external_ref:
+                    logger.info(
+                        f"Synced Onspring record {onspring_record_id} to ARRMS {arrms_questionnaire_id}",
+                        extra={
+                            "external_reference_id": external_ref["id"],
+                            "external_id": external_ref["external_id"],
+                        },
+                    )
+                else:
+                    logger.warning(
+                        f"External reference not found in response for {onspring_record_id}"
+                    )
+
+            except Exception as upload_error:
+                logger.error(
+                    f"Failed to upload questionnaire for record {onspring_record_id}",
+                    extra={"error": str(upload_error)},
+                )
+                raise
+
+            # Process additional file attachments
+            if additional_files:
+                for file_info in additional_files:
+                    try:
+                        # Download file from Onspring
+                        file_content = onspring_client.download_file(
+                            record_id=file_info["record_id"],
+                            field_id=file_info["field_id"],
+                            file_id=file_info["file_id"],
+                        )
+
+                        # Upload to ARRMS with external metadata
+                        arrms_client.upload_document(
+                            questionnaire_id=arrms_questionnaire_id,
+                            file_content=file_content,
+                            file_name=file_info["file_name"],
+                            content_type=file_info["content_type"],
+                            external_id=str(file_info["file_id"]),  # Onspring file ID
+                            source_metadata={
+                                "onspring_record_id": record.get("recordId"),
+                                "onspring_field_id": file_info["field_id"],
+                                "onspring_file_id": file_info["file_id"],
+                                "notes": file_info.get("notes"),
+                                "uploaded_at": datetime.utcnow().isoformat(),
+                            },
+                        )
+
+                        files_synced += 1
+                        logger.debug(f"Synced supporting file: {file_info['file_name']}")
+
+                    except Exception as file_error:
+                        files_failed += 1
+                        logger.error(
+                            f"Failed to sync file {file_info.get('file_name')}",
+                            extra={
+                                "error": str(file_error),
+                                "file_info": file_info,
+                            },
+                        )
 
             successful += 1
 

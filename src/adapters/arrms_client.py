@@ -126,159 +126,126 @@ class ARRMSClient:
             logger.error(f"ARRMS health check failed: {str(e)}")
             raise ARRMSAPIError(f"Health check failed: {str(e)}")
 
-    def create_questionnaire(self, data: Dict[str, Any]) -> Dict[str, Any]:
+    def upload_questionnaire(
+        self,
+        file_path: str,
+        external_id: str,
+        external_source: str = "onspring",
+        external_metadata: Optional[Dict[str, Any]] = None,
+        **kwargs
+    ) -> Dict[str, Any]:
         """
-        Create questionnaire in ARRMS with external system fields.
+        Upload questionnaire file to ARRMS with external system tracking.
+
+        Response includes external_references array:
+        {
+            "id": "uuid",
+            "name": "Questionnaire Name",
+            "external_references": [
+                {
+                    "id": "ref-uuid",
+                    "external_id": "12345",
+                    "external_source": "onspring",
+                    "external_metadata": {...},
+                    "sync_status": null,
+                    "last_synced_at": null
+                }
+            ]
+        }
 
         Args:
-            data: Questionnaire data including external_id and external_source
+            file_path: Path to questionnaire file (Excel format)
+            external_id: Onspring record ID
+            external_source: Source system identifier (default: "onspring")
+            external_metadata: Additional metadata about the source record
+            **kwargs: Additional form fields (requester_name, urgency, etc.)
 
         Returns:
-            Created questionnaire response
+            Questionnaire response with external_references array
 
         Raises:
             ARRMSAPIError: If API request fails
         """
         try:
-            url = f"{self.base_url}/api/v1/questionnaires"
-            logger.info("Creating questionnaire in ARRMS")
+            import os
 
-            # Payload includes external system tracking fields
-            payload = {
-                "title": data.get("title"),
-                "client_name": data.get("client_name"),
-                "description": data.get("description"),
-                "due_date": data.get("due_date"),
-                # External system tracking
-                "external_id": data.get("external_id"),
-                "external_source": data.get("external_source", "onspring"),
-                "external_metadata": data.get("external_metadata", {}),
-            }
+            url = f"{self.base_url}/api/v1/questionnaires/upload"
+            logger.info(f"Uploading questionnaire from {file_path} with external_id {external_id}")
 
-            response = self.session.post(url, json=payload, timeout=30)
-            response.raise_for_status()
+            # Prepare multipart form data
+            with open(file_path, 'rb') as f:
+                files = {
+                    "file": (
+                        os.path.basename(file_path),
+                        f,
+                        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                    )
+                }
+
+                # Form data with external system tracking
+                data = {
+                    "external_id": external_id,
+                    "external_source": external_source,
+                    "external_metadata": json.dumps(external_metadata or {}),
+                    **kwargs  # Additional fields like requester_name, urgency, etc.
+                }
+
+                response = self.session.post(url, files=files, data=data, timeout=120)
+                response.raise_for_status()
 
             result = response.json()
-            logger.info(f"Created ARRMS questionnaire with ID {result.get('id')}")
+            logger.info(f"Uploaded questionnaire to ARRMS with ID {result.get('id')}")
 
             return result
 
         except requests.HTTPError as e:
-            logger.error(f"HTTP error creating ARRMS questionnaire: {str(e)}")
+            logger.error(f"HTTP error uploading questionnaire: {str(e)}")
             if e.response is not None:
                 logger.error(f"Response body: {e.response.text}")
-            raise ARRMSAPIError(f"Failed to create questionnaire: {str(e)}")
+            raise ARRMSAPIError(f"Failed to upload questionnaire: {str(e)}")
         except requests.RequestException as e:
-            logger.error(f"Request error creating ARRMS questionnaire: {str(e)}")
+            logger.error(f"Request error uploading questionnaire: {str(e)}")
             raise ARRMSAPIError(f"Request failed: {str(e)}")
+        except IOError as e:
+            logger.error(f"File error: {str(e)}")
+            raise ARRMSAPIError(f"Failed to read questionnaire file: {str(e)}")
 
-    def update_questionnaire(self, arrms_id: str, data: Dict[str, Any]) -> Dict[str, Any]:
+    def parse_external_reference(
+        self, response_data: Dict[str, Any], external_source: str = "onspring"
+    ) -> Optional[Dict[str, Any]]:
         """
-        Update existing questionnaire in ARRMS.
+        Extract external reference from ARRMS response.
+
+        Response format:
+        {
+            "id": "uuid",
+            "external_references": [
+                {
+                    "id": "ref-uuid",
+                    "external_id": "12345",
+                    "external_source": "onspring",
+                    "external_metadata": {...},
+                    "sync_status": null,
+                    "last_synced_at": null
+                }
+            ]
+        }
 
         Args:
-            arrms_id: ARRMS questionnaire ID
-            data: Updated questionnaire data
+            response_data: ARRMS API response
+            external_source: Source system to filter by (default: "onspring")
 
         Returns:
-            Updated questionnaire response
-
-        Raises:
-            ARRMSAPIError: If API request fails
+            External reference dict if found, None otherwise
         """
-        try:
-            url = f"{self.base_url}/api/v1/questionnaires/{arrms_id}"
-            logger.info(f"Updating ARRMS questionnaire {arrms_id}")
+        refs = response_data.get("external_references", [])
 
-            response = self.session.put(url, json=data, timeout=30)
-            response.raise_for_status()
+        # Find reference matching our source
+        for ref in refs:
+            if ref.get("external_source") == external_source:
+                return ref
 
-            result = response.json()
-            logger.info(f"Updated ARRMS questionnaire {arrms_id}")
-
-            return result
-
-        except requests.HTTPError as e:
-            logger.error(f"HTTP error updating ARRMS questionnaire: {str(e)}")
-            if e.response is not None:
-                logger.error(f"Response body: {e.response.text}")
-            raise ARRMSAPIError(f"Failed to update questionnaire: {str(e)}")
-        except requests.RequestException as e:
-            logger.error(f"Request error updating ARRMS questionnaire: {str(e)}")
-            raise ARRMSAPIError(f"Request failed: {str(e)}")
-
-    def get_questionnaire_by_external_id(self, external_id: str) -> Optional[Dict[str, Any]]:
-        """
-        Query questionnaire by Onspring record ID.
-
-        Args:
-            external_id: Onspring record ID
-
-        Returns:
-            Questionnaire data if found, None otherwise
-
-        Raises:
-            ARRMSAPIError: If API request fails (other than 404)
-        """
-        try:
-            url = f"{self.base_url}/api/v1/questionnaires"
-            params = {
-                "external_source": "onspring",
-                "external_id": external_id,
-            }
-
-            response = self.session.get(url, params=params, timeout=10)
-
-            if response.status_code == 404:
-                return None
-
-            response.raise_for_status()
-            results = response.json()
-
-            # Should return single result or empty list
-            return results[0] if results else None
-
-        except requests.HTTPError as e:
-            if e.response and e.response.status_code == 404:
-                return None
-            logger.error(f"HTTP error querying questionnaire: {str(e)}")
-            raise ARRMSAPIError(f"Failed to query questionnaire: {str(e)}")
-        except requests.RequestException as e:
-            logger.error(f"Request error querying questionnaire: {str(e)}")
-            raise ARRMSAPIError(f"Request failed: {str(e)}")
-
-    def upsert_questionnaire(self, external_id: str, data: Dict[str, Any]) -> Dict[str, Any]:
-        """
-        Create or update questionnaire by Onspring ID.
-
-        Args:
-            external_id: Onspring record ID
-            data: Questionnaire data
-
-        Returns:
-            Upsert operation response
-
-        Raises:
-            ARRMSAPIError: If API request fails
-        """
-        try:
-            # First, try to find existing questionnaire
-            existing = self.get_questionnaire_by_external_id(external_id)
-
-            if existing:
-                # Update existing
-                logger.info(f"Questionnaire with external_id {external_id} exists, updating")
-                return self.update_questionnaire(existing["id"], data)
-            else:
-                # Create new
-                logger.info(f"Questionnaire with external_id {external_id} does not exist, creating")
-                return self.create_questionnaire(data)
-
-        except ARRMSAPIError:
-            raise
-        except Exception as e:
-            logger.error(f"Unexpected error during upsert: {str(e)}")
-            raise ARRMSAPIError(f"Upsert operation failed: {str(e)}")
+        return None
 
     def delete_record(self, record_id: str) -> bool:
         """

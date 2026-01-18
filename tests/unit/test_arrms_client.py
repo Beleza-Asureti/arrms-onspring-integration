@@ -4,7 +4,7 @@ Unit tests for ARRMS Client
 
 import json
 import pytest
-from unittest.mock import Mock, MagicMock, patch
+from unittest.mock import Mock, MagicMock, patch, mock_open
 from src.adapters.arrms_client import ARRMSClient
 from src.utils.exceptions import ARRMSAPIError
 
@@ -56,129 +56,139 @@ def test_create_session_uses_api_key_header(monkeypatch):
         assert "Authorization" not in client.session.headers
 
 
-def test_create_questionnaire_with_external_id(arrms_client, mock_session):
-    """Test questionnaire creation with Onspring tracking."""
+def test_upload_questionnaire_with_external_id(arrms_client, mock_session):
+    """Test questionnaire upload with Onspring tracking and external_references array."""
     mock_response = Mock()
+
+    # Mock response with external_references array
     mock_response.json.return_value = {
         "id": "uuid-123",
-        "title": "SOC 2 Assessment",
-        "external_id": "12345",
+        "name": "Test Questionnaire",
+        "external_references": [
+            {
+                "id": "ref-uuid-456",
+                "external_id": "12345",
+                "external_source": "onspring",
+                "external_metadata": {"app_id": 100},
+                "sync_status": None,
+                "last_synced_at": None,
+            }
+        ],
     }
     mock_session.post.return_value = mock_response
 
-    data = {
-        "title": "SOC 2 Assessment",
-        "client_name": "Test Client",
-        "external_id": "12345",
-        "external_source": "onspring",
-        "external_metadata": {"app_id": 100},
-    }
-
-    result = arrms_client.create_questionnaire(data)
+    # Mock file open
+    test_file_content = b"test file content"
+    with patch("builtins.open", mock_open(read_data=test_file_content)):
+        result = arrms_client.upload_questionnaire(
+            file_path="/tmp/test.xlsx",
+            external_id="12345",
+            external_source="onspring",
+            external_metadata={"app_id": 100},
+            requester_name="John Doe",
+            urgency="High",
+        )
 
     assert result["id"] == "uuid-123"
+    assert len(result["external_references"]) == 1
+    assert result["external_references"][0]["external_id"] == "12345"
+
     mock_session.post.assert_called_once()
     call_args = mock_session.post.call_args
 
     # Verify URL
-    assert call_args[0][0] == "https://arrms.example.com/api/v1/questionnaires"
+    assert call_args[0][0] == "https://arrms.example.com/api/v1/questionnaires/upload"
 
-    # Verify payload includes external tracking
-    payload = call_args[1]["json"]
-    assert payload["external_id"] == "12345"
-    assert payload["external_source"] == "onspring"
-    assert payload["title"] == "SOC 2 Assessment"
+    # Verify form data includes external tracking and additional fields
+    data = call_args[1]["data"]
+    assert data["external_id"] == "12345"
+    assert data["external_source"] == "onspring"
+    assert data["requester_name"] == "John Doe"
+    assert data["urgency"] == "High"
+
+    # Verify external_metadata is JSON string
+    metadata = json.loads(data["external_metadata"])
+    assert metadata["app_id"] == 100
 
 
-def test_update_questionnaire(arrms_client, mock_session):
-    """Test updating existing questionnaire."""
-    mock_response = Mock()
-    mock_response.json.return_value = {
-        "id": "uuid-existing",
-        "title": "Updated Title",
+def test_parse_external_reference_found(arrms_client):
+    """Test parsing external reference from response."""
+    response_data = {
+        "id": "uuid-123",
+        "name": "Test",
+        "external_references": [
+            {
+                "id": "ref-uuid-456",
+                "external_id": "12345",
+                "external_source": "onspring",
+                "external_metadata": {"app_id": 100},
+            }
+        ],
     }
-    mock_session.put.return_value = mock_response
 
-    data = {"title": "Updated Title", "description": "Updated description"}
+    external_ref = arrms_client.parse_external_reference(response_data, "onspring")
 
-    result = arrms_client.update_questionnaire("uuid-existing", data)
-
-    assert result["id"] == "uuid-existing"
-    mock_session.put.assert_called_once()
-    call_args = mock_session.put.call_args
-
-    # Verify URL
-    assert (
-        call_args[0][0]
-        == "https://arrms.example.com/api/v1/questionnaires/uuid-existing"
-    )
+    assert external_ref is not None
+    assert external_ref["external_id"] == "12345"
+    assert external_ref["external_source"] == "onspring"
+    assert external_ref["external_metadata"]["app_id"] == 100
 
 
-def test_get_questionnaire_by_external_id_found(arrms_client, mock_session):
-    """Test querying questionnaire by external ID when found."""
-    mock_response = Mock()
-    mock_response.status_code = 200
-    mock_response.json.return_value = [
-        {"id": "uuid-123", "external_id": "12345", "title": "Test"}
-    ]
-    mock_session.get.return_value = mock_response
+def test_parse_external_reference_not_found(arrms_client):
+    """Test parsing external reference when source not found."""
+    response_data = {
+        "id": "uuid-123",
+        "name": "Test",
+        "external_references": [
+            {
+                "id": "ref-uuid-456",
+                "external_id": "99999",
+                "external_source": "different_source",
+                "external_metadata": {},
+            }
+        ],
+    }
 
-    result = arrms_client.get_questionnaire_by_external_id("12345")
+    external_ref = arrms_client.parse_external_reference(response_data, "onspring")
 
-    assert result is not None
-    assert result["id"] == "uuid-123"
-    assert result["external_id"] == "12345"
-
-    call_args = mock_session.get.call_args
-    assert "params" in call_args[1]
-    assert call_args[1]["params"]["external_id"] == "12345"
-    assert call_args[1]["params"]["external_source"] == "onspring"
-
-
-def test_get_questionnaire_by_external_id_not_found(arrms_client, mock_session):
-    """Test querying questionnaire by external ID when not found."""
-    mock_response = Mock()
-    mock_response.status_code = 404
-    mock_session.get.return_value = mock_response
-
-    result = arrms_client.get_questionnaire_by_external_id("99999")
-
-    assert result is None
+    assert external_ref is None
 
 
-def test_upsert_questionnaire_creates_new(arrms_client):
-    """Test upsert creates new questionnaire when not found."""
-    # Mock get_questionnaire_by_external_id to return None
-    arrms_client.get_questionnaire_by_external_id = Mock(return_value=None)
-    arrms_client.create_questionnaire = Mock(
-        return_value={"id": "uuid-new", "title": "New Questionnaire"}
-    )
+def test_parse_external_reference_empty_array(arrms_client):
+    """Test parsing external reference when array is empty."""
+    response_data = {"id": "uuid-123", "name": "Test", "external_references": []}
 
-    data = {"title": "New Questionnaire", "external_id": "12345"}
+    external_ref = arrms_client.parse_external_reference(response_data, "onspring")
 
-    result = arrms_client.upsert_questionnaire("12345", data)
-
-    assert result["id"] == "uuid-new"
-    arrms_client.create_questionnaire.assert_called_once_with(data)
-    arrms_client.get_questionnaire_by_external_id.assert_called_once_with("12345")
+    assert external_ref is None
 
 
-def test_upsert_questionnaire_updates_existing(arrms_client):
-    """Test upsert updates existing questionnaire."""
-    # Mock get_questionnaire_by_external_id to return existing
-    arrms_client.get_questionnaire_by_external_id = Mock(
-        return_value={"id": "uuid-existing", "title": "Old Title"}
-    )
-    arrms_client.update_questionnaire = Mock(
-        return_value={"id": "uuid-existing", "title": "Updated Title"}
-    )
+def test_parse_external_reference_multiple_sources(arrms_client):
+    """Test parsing external reference with multiple sources."""
+    response_data = {
+        "id": "uuid-123",
+        "name": "Test",
+        "external_references": [
+            {
+                "id": "ref-uuid-1",
+                "external_id": "99999",
+                "external_source": "servicenow",
+                "external_metadata": {},
+            },
+            {
+                "id": "ref-uuid-2",
+                "external_id": "12345",
+                "external_source": "onspring",
+                "external_metadata": {"app_id": 100},
+            },
+        ],
+    }
 
-    data = {"title": "Updated Title"}
+    external_ref = arrms_client.parse_external_reference(response_data, "onspring")
 
-    result = arrms_client.upsert_questionnaire("12345", data)
-
-    assert result["id"] == "uuid-existing"
-    arrms_client.update_questionnaire.assert_called_once_with("uuid-existing", data)
+    assert external_ref is not None
+    assert external_ref["external_id"] == "12345"
+    assert external_ref["external_source"] == "onspring"
 
 
 def test_upload_document_with_metadata(arrms_client, mock_session):
