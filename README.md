@@ -148,7 +148,41 @@ Follow the prompts to configure:
 - Environment (dev/staging/prod)
 - Onspring API URL
 - ARRMS API URL
+- **OnspringDefaultAppId**: The Onspring App ID for your GRC application (required for ARRMS sync)
+- **OnspringFieldMapping**: JSON mapping of field names to field IDs (see Configuration below)
 - Confirm changes and allow SAM to create IAM roles
+
+#### Configuration for ARRMS to Onspring Sync
+
+The `OnspringFieldMapping` parameter maps ARRMS field names to Onspring field IDs. Format as JSON:
+
+```json
+{
+  "Total Assessment Questions": 12345,
+  "Complete Assessment Questions": 12346,
+  "Open Assessment Questions": 12347,
+  "High Confidence Questions": 12348,
+  "Medium-High Confidence": 12349,
+  "Medium-Low Confidence": 12350,
+  "Low Confidence Questions": 12351,
+  "Status": 12352
+}
+```
+
+To find your Onspring field IDs, use the Onspring API or inspect field configurations in the Onspring UI.
+
+### 6. GitHub Actions Deployment
+
+For automated deployment via GitHub Actions, configure the required secrets in your repository:
+
+1. Go to **Settings > Secrets and variables > Actions**
+2. Add the following repository secrets:
+   - `ONSPRING_API_URL`
+   - `ONSPRING_DEFAULT_APP_ID`
+   - `ONSPRING_FIELD_MAPPING`
+   - `ARRMS_API_URL`
+
+See [docs/GITHUB_SECRETS_SETUP.md](docs/GITHUB_SECRETS_SETUP.md) for detailed setup instructions.
 
 ## Local Development
 
