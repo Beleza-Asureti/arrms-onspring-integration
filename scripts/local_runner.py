@@ -389,29 +389,39 @@ def run_webhook_flow(mock_client, arrms_client, record_id: int = 12345, app_id: 
         arrms_id = result.get("id")
         logger.info(f"Successfully uploaded questionnaire to ARRMS: {arrms_id}")
 
-        # 7. Upload additional files
+        # 7. Upload additional files (non-fatal if endpoint doesn't exist)
         additional_files = files[1:]
+        files_uploaded = 0
+        files_failed = 0
         for file_info in additional_files:
-            file_content = mock_client.download_file(
-                record_id=file_info["record_id"],
-                field_id=file_info["field_id"],
-                file_id=file_info["file_id"],
-            )
+            try:
+                file_content = mock_client.download_file(
+                    record_id=file_info["record_id"],
+                    field_id=file_info["field_id"],
+                    file_id=file_info["file_id"],
+                )
 
-            arrms_client.upload_document(
-                questionnaire_id=arrms_id,
-                file_content=file_content,
-                file_name=file_info["file_name"],
-                content_type=file_info["content_type"],
-                external_id=str(file_info["file_id"]),
-                source_metadata={
-                    "onspring_record_id": record_id,
-                    "onspring_field_id": file_info["field_id"],
-                    "onspring_file_id": file_info["file_id"],
-                    "uploaded_at": datetime.utcnow().isoformat(),
-                },
-            )
-            logger.info(f"Uploaded additional file: {file_info['file_name']}")
+                arrms_client.upload_document(
+                    questionnaire_id=arrms_id,
+                    file_content=file_content,
+                    file_name=file_info["file_name"],
+                    content_type=file_info["content_type"],
+                    external_id=str(file_info["file_id"]),
+                    source_metadata={
+                        "onspring_record_id": record_id,
+                        "onspring_field_id": file_info["field_id"],
+                        "onspring_file_id": file_info["file_id"],
+                        "uploaded_at": datetime.utcnow().isoformat(),
+                    },
+                )
+                files_uploaded += 1
+                logger.info(f"Uploaded additional file: {file_info['file_name']}")
+            except Exception as e:
+                files_failed += 1
+                logger.warning(f"Failed to upload additional file '{file_info['file_name']}': {e}")
+
+        if additional_files:
+            logger.info(f"Additional files: {files_uploaded} uploaded, {files_failed} failed")
 
         return result
 
