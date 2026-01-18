@@ -91,7 +91,21 @@ class HTTPLogger:
                     if isinstance(file_tuple, tuple):
                         filename = file_tuple[0] if len(file_tuple) > 0 else "unknown"
                         content_type = file_tuple[2] if len(file_tuple) > 2 else "unknown"
-                        size = len(file_tuple[1]) if len(file_tuple) > 1 else 0
+                        # Handle both bytes and file objects
+                        if len(file_tuple) > 1:
+                            file_content = file_tuple[1]
+                            if isinstance(file_content, bytes):
+                                size = len(file_content)
+                            elif hasattr(file_content, 'seek') and hasattr(file_content, 'tell'):
+                                # File object - get size by seeking to end
+                                current_pos = file_content.tell()
+                                file_content.seek(0, 2)  # Seek to end
+                                size = file_content.tell()
+                                file_content.seek(current_pos)  # Restore position
+                            else:
+                                size = "unknown"
+                        else:
+                            size = 0
                         logger.info(f"File '{name}': {filename} ({content_type}, {size} bytes)")
 
     def _log_response(self, response: Response):
