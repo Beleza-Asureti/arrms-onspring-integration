@@ -186,15 +186,34 @@ pytest tests/unit/test_onspring_client.py
 ### Code Quality
 
 ```bash
+# Run all checks (formatting, linting, tests)
+./scripts/check.sh
+
+# Or run individually:
+
 # Format code
-black src/ tests/
+ruff format src/ tests/
+
+# Check formatting without changes
+ruff format --check src/ tests/
 
 # Lint code
-flake8 src/ tests/
-pylint src/
+ruff check src/ tests/
 
-# Type checking
-mypy src/
+# Lint with auto-fix
+ruff check --fix src/ tests/
+```
+
+### Pre-commit Hooks (Optional)
+
+```bash
+# Install pre-commit (one-time)
+pip install pre-commit
+pre-commit install
+
+# Pre-commit will now run automatically on git commit
+# Or run manually on all files:
+pre-commit run --all-files
 ```
 
 ## API Endpoints
