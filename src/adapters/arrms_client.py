@@ -95,10 +95,11 @@ class ARRMSClient:
         session.mount("http://", adapter)
 
         # Set default headers
+        # NOTE: Don't set Content-Type here - let requests set it automatically
+        # based on the request type (json= sets application/json, files= sets multipart/form-data)
         session.headers.update(
             {
                 "X-API-Key": self.api_key,
-                "Content-Type": "application/json",
                 "Accept": "application/json",
             }
         )

@@ -24,7 +24,7 @@ def arrms_client(monkeypatch, mock_session):
     monkeypatch.setenv("ARRMS_API_URL", "https://arrms.example.com")
     monkeypatch.setenv("ARRMS_API_KEY_SECRET", "test-secret-name")
 
-    with patch("src.adapters.arrms_client.boto3.client") as mock_boto:
+    with patch("adapters.arrms_client.boto3.client") as mock_boto:
         # Mock Secrets Manager response
         mock_secrets = Mock()
         mock_secrets.get_secret_value.return_value = {"SecretString": "test-api-key-12345"}
@@ -41,7 +41,7 @@ def test_create_session_uses_api_key_header(monkeypatch):
     monkeypatch.setenv("ARRMS_API_URL", "https://arrms.example.com")
     monkeypatch.setenv("ARRMS_API_KEY_SECRET", "test-secret-name")
 
-    with patch("src.adapters.arrms_client.boto3.client") as mock_boto:
+    with patch("adapters.arrms_client.boto3.client") as mock_boto:
         mock_secrets = Mock()
         mock_secrets.get_secret_value.return_value = {"SecretString": "test-api-key-12345"}
         mock_boto.return_value = mock_secrets
