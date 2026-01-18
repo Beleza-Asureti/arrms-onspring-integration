@@ -62,7 +62,7 @@ The ARRMS-Onspring Integration Service has been successfully deployed to AWS wit
 
 **GitHub Secrets Configured**:
 - ✅ `ONSPRING_API_URL`: `https://api.onspring.com`
-- ⚠️ `ARRMS_API_URL`: `https://api.arrms.placeholder.local` (update when available)
+- ✅ `ARRMS_API_URL`: `https://demo.preview.asureti.com`
 
 **GitHub Actions Workflow**: `.github/workflows/deploy.yml`
 - Automatically deploys on push to main
@@ -148,18 +148,18 @@ aws secretsmanager update-secret \
 
 ### 2. Update ARRMS API URL
 
-Once ARRMS API is available, update the GitHub secret:
+The ARRMS API URL is configured to `https://demo.preview.asureti.com`. To update it:
 
 ```bash
 gh secret set ARRMS_API_URL \
-  --body "https://your-actual-arrms-api-url.com" \
+  --body "https://demo.preview.asureti.com" \
   --repo Beleza-Asureti/arrms-onspring-integration
 ```
 
 Then redeploy via GitHub Actions or manually:
 
 ```bash
-sam deploy --parameter-overrides ArrmsApiUrl=https://your-actual-arrms-api-url.com
+sam deploy --parameter-overrides ArrmsApiUrl=https://demo.preview.asureti.com
 ```
 
 ### 3. Configure Onspring Webhook
@@ -290,8 +290,8 @@ For issues or questions:
 ✅ **Infrastructure**: Fully deployed and operational
 ✅ **CI/CD Pipeline**: Configured with GitHub Actions
 ✅ **Health Check**: Passing
+✅ **ARRMS URL**: Configured to <https://demo.preview.asureti.com>
 ⚠️ **API Keys**: Placeholders need to be updated
-⚠️ **ARRMS URL**: Needs real endpoint when available
 📝 **Next**: Configure Onspring webhook and update API credentials
 
 ---

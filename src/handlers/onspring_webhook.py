@@ -69,7 +69,9 @@ def lambda_handler(event: Dict[str, Any], context: LambdaContext) -> Dict[str, A
             app_id = os.environ.get("ONSPRING_DEFAULT_APP_ID")
 
         if not app_id:
-            raise ValidationError("Missing AppId - ensure Onspring webhook includes AppId in body")
+            raise ValidationError(
+                "Missing AppId - ensure Onspring webhook includes AppId in body"
+            )
 
         try:
             app_id = int(app_id)
@@ -93,6 +95,7 @@ def lambda_handler(event: Dict[str, Any], context: LambdaContext) -> Dict[str, A
 
         # Transform data to extract metadata
         from handlers.onspring_to_arrms import transform_record
+
         transformed_data = transform_record(record_data)
         onspring_record_id = str(record_id)
 
@@ -100,9 +103,7 @@ def lambda_handler(event: Dict[str, Any], context: LambdaContext) -> Dict[str, A
         files = onspring_client.get_record_files(record_data)
 
         if not files or len(files) == 0:
-            raise ValidationError(
-                f"No files found for record {onspring_record_id}"
-            )
+            raise ValidationError(f"No files found for record {onspring_record_id}")
 
         # Use the first file as the questionnaire file
         # All remaining files are treated as additional attachments
@@ -124,7 +125,7 @@ def lambda_handler(event: Dict[str, Any], context: LambdaContext) -> Dict[str, A
         file_name = questionnaire_file.get("file_name")
         if not file_name:
             raise ValidationError(
-                f"Questionnaire file is missing filename in Onspring data"
+                "Questionnaire file is missing filename in Onspring data"
             )
 
         _, file_ext = os.path.splitext(file_name)
@@ -181,7 +182,9 @@ def lambda_handler(event: Dict[str, Any], context: LambdaContext) -> Dict[str, A
         files_failed = 0
 
         if additional_files:
-            logger.info(f"Processing {len(additional_files)} additional file attachments")
+            logger.info(
+                f"Processing {len(additional_files)} additional file attachments"
+            )
 
             for file_info in additional_files:
                 try:
@@ -268,7 +271,7 @@ def lambda_handler(event: Dict[str, Any], context: LambdaContext) -> Dict[str, A
             status_code=500, body={"error": "Integration error occurred"}
         )
 
-    except Exception as e:
+    except Exception:
         logger.exception("Unexpected error processing webhook")
         metrics.add_metric(
             name="WebhookUnexpectedError", unit=MetricUnit.Count, value=1

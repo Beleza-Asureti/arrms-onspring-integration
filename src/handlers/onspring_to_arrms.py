@@ -9,7 +9,7 @@ import json
 import os
 import tempfile
 from datetime import datetime
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List
 from aws_lambda_powertools import Logger, Tracer, Metrics
 from aws_lambda_powertools.metrics import MetricUnit
 from aws_lambda_powertools.utilities.typing import LambdaContext
@@ -137,7 +137,7 @@ def lambda_handler(event: Dict[str, Any], context: LambdaContext) -> Dict[str, A
             status_code=500, body={"error": "Integration error occurred"}
         )
 
-    except Exception as e:
+    except Exception:
         logger.exception("Unexpected error during sync")
         metrics.add_metric(name="SyncUnexpectedError", unit=MetricUnit.Count, value=1)
         return build_response(status_code=500, body={"error": "Internal server error"})
@@ -205,10 +205,12 @@ def sync_records_to_arrms(
                     f"No files found for record {onspring_record_id}, skipping"
                 )
                 failed += 1
-                errors.append({
-                    "record_id": onspring_record_id,
-                    "error": "No files found in record"
-                })
+                errors.append(
+                    {
+                        "record_id": onspring_record_id,
+                        "error": "No files found in record",
+                    }
+                )
                 continue
 
             # Use the first file as the questionnaire file
@@ -260,7 +262,8 @@ def sync_records_to_arrms(
                     urgency=transformed_record.get("urgency"),
                     assessment_type=transformed_record.get("assessment_type"),
                     due_date=transformed_record.get("due_date"),
-                    notes=transformed_record.get("notes") or transformed_record.get("description"),
+                    notes=transformed_record.get("notes")
+                    or transformed_record.get("description"),
                 )
 
                 # Clean up temp file
@@ -318,7 +321,9 @@ def sync_records_to_arrms(
                         )
 
                         files_synced += 1
-                        logger.debug(f"Synced supporting file: {file_info['file_name']}")
+                        logger.debug(
+                            f"Synced supporting file: {file_info['file_name']}"
+                        )
 
                     except Exception as file_error:
                         files_failed += 1

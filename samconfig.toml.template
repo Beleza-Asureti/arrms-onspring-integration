@@ -24,7 +24,7 @@ parameter_overrides = [
     "Environment=dev",
     "OnspringApiUrl=https://api.onspring.com",
     "OnspringApiKeySecretName=/arrms-integration/onspring/api-key",
-    "ArrmsApiUrl=https://api.arrms.example.com",
+    "ArrmsApiUrl=https://demo.preview.asureti.com",
     "ArrmsApiKeySecretName=/arrms-integration/arrms/api-key",
     "LogLevel=INFO"
 ]

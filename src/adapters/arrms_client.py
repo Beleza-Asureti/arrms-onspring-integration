@@ -132,7 +132,7 @@ class ARRMSClient:
         external_id: str,
         external_source: str = "onspring",
         external_metadata: Optional[Dict[str, Any]] = None,
-        **kwargs
+        **kwargs,
     ) -> Dict[str, Any]:
         """
         Upload questionnaire file to ARRMS with external system tracking.
@@ -170,15 +170,17 @@ class ARRMSClient:
             import os
 
             url = f"{self.base_url}/api/v1/questionnaires/upload"
-            logger.info(f"Uploading questionnaire from {file_path} with external_id {external_id}")
+            logger.info(
+                f"Uploading questionnaire from {file_path} with external_id {external_id}"
+            )
 
             # Prepare multipart form data
-            with open(file_path, 'rb') as f:
+            with open(file_path, "rb") as f:
                 files = {
                     "file": (
                         os.path.basename(file_path),
                         f,
-                        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                     )
                 }
 
@@ -187,7 +189,7 @@ class ARRMSClient:
                     "external_id": external_id,
                     "external_source": external_source,
                     "external_metadata": json.dumps(external_metadata or {}),
-                    **kwargs  # Additional fields like requester_name, urgency, etc.
+                    **kwargs,  # Additional fields like requester_name, urgency, etc.
                 }
 
                 response = self.session.post(url, files=files, data=data, timeout=120)
@@ -399,7 +401,9 @@ class ARRMSClient:
             response.raise_for_status()
 
             result = response.json()
-            logger.info(f"Uploaded document '{file_name}' to questionnaire {questionnaire_id}")
+            logger.info(
+                f"Uploaded document '{file_name}' to questionnaire {questionnaire_id}"
+            )
 
             return result
 

@@ -423,7 +423,9 @@ class OnspringClient:
                 # Check if first item looks like a file object
                 first_item = value[0]
                 if isinstance(first_item, dict) and "fileId" in first_item:
-                    logger.info(f"Found file field {field_id} with type '{field_type}' containing {len(value)} files")
+                    logger.info(
+                        f"Found file field {field_id} with type '{field_type}' containing {len(value)} files"
+                    )
 
                     for file_item in value:
                         file_info = {
@@ -441,5 +443,7 @@ class OnspringClient:
                             extra={"file_info": file_info},
                         )
 
-        logger.info(f"Found {len(files)} total file attachments in record {record_data.get('recordId')}")
+        logger.info(
+            f"Found {len(files)} total file attachments in record {record_data.get('recordId')}"
+        )
         return files
