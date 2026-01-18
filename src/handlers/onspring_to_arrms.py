@@ -230,10 +230,17 @@ def sync_records_to_arrms(
                 )
 
                 # Get file extension from original filename (Excel, Word, or PDF)
-                file_name = questionnaire_file.get("file_name", "questionnaire.bin")
+                file_name = questionnaire_file.get("file_name")
+                if not file_name:
+                    raise ValidationError(
+                        f"Questionnaire file for record {onspring_record_id} is missing filename in Onspring data"
+                    )
+
                 _, file_ext = os.path.splitext(file_name)
                 if not file_ext:
-                    file_ext = ".bin"  # Default extension if none found
+                    raise ValidationError(
+                        f"Questionnaire file '{file_name}' for record {onspring_record_id} has no file extension"
+                    )
 
                 # Save to temporary file for upload
                 with tempfile.NamedTemporaryFile(

@@ -122,10 +122,17 @@ def lambda_handler(event: Dict[str, Any], context: LambdaContext) -> Dict[str, A
 
         # Get file extension from original filename
         import os as os_path
-        file_name = questionnaire_file.get("file_name", "questionnaire.bin")
+        file_name = questionnaire_file.get("file_name")
+        if not file_name:
+            raise ValidationError(
+                f"Questionnaire file is missing filename in Onspring data"
+            )
+
         _, file_ext = os_path.splitext(file_name)
         if not file_ext:
-            file_ext = ".bin"  # Default extension if none found
+            raise ValidationError(
+                f"Questionnaire file '{file_name}' has no file extension"
+            )
 
         # Save to temporary file for upload
         with tempfile.NamedTemporaryFile(
