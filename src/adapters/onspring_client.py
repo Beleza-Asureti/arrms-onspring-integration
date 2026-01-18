@@ -260,10 +260,16 @@ class OnspringClient:
             OnspringAPIError: If API request fails
         """
         try:
+            # Onspring API uses specific endpoint format for updates
             url = f"{self.base_url}/Records"
             logger.info(f"Updating record {record_id} in app {app_id}")
 
-            payload = {"appId": app_id, "recordId": record_id, "fields": field_data}
+            # Format fields as array of field objects
+            fields = []
+            for field_id, field_value in field_data.items():
+                fields.append({"fieldId": int(field_id), "value": field_value})
+
+            payload = {"appId": app_id, "recordId": record_id, "fields": fields}
 
             response = self.session.put(url, json=payload, timeout=30)
             response.raise_for_status()
