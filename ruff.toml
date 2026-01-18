@@ -1,0 +1,36 @@
+# Ruff configuration for arrms-onspring-integration
+# https://docs.astral.sh/ruff/configuration/
+
+target-version = "py311"
+line-length = 127
+
+[lint]
+# Enable pycodestyle (E, W), pyflakes (F), isort (I), and complexity (C901)
+select = ["E", "W", "F", "I", "C901"]
+
+# Ignore specific rules
+ignore = [
+    "E501",  # Line too long (handled by formatter)
+]
+
+# Allow complexity warnings but don't fail on them
+# Lambda handlers are inherently complex
+per-file-ignores = {}
+
+[lint.mccabe]
+# Max complexity before warning (default is 10)
+# We allow up to 25 for Lambda handlers
+max-complexity = 25
+
+[format]
+# Use double quotes for strings
+quote-style = "double"
+
+# Indent with spaces
+indent-style = "space"
+
+# Respect magic trailing commas
+skip-magic-trailing-comma = false
+
+# Auto-detect line endings
+line-ending = "auto"

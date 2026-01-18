@@ -5,12 +5,10 @@ Provides consistent API Gateway response formatting.
 """
 
 import json
-from typing import Dict, Any, Optional
+from typing import Any, Dict, Optional
 
 
-def build_response(
-    status_code: int, body: Dict[str, Any], headers: Optional[Dict[str, str]] = None
-) -> Dict[str, Any]:
+def build_response(status_code: int, body: Dict[str, Any], headers: Optional[Dict[str, str]] = None) -> Dict[str, Any]:
     """
     Build standardized API Gateway response.
 

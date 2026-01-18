@@ -5,8 +5,9 @@ Centralized configuration management using environment variables.
 """
 
 from typing import Optional
-from pydantic_settings import BaseSettings
+
 from pydantic import Field
+from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
@@ -17,9 +18,7 @@ class Settings(BaseSettings):
     log_level: str = Field(default="INFO", alias="LOG_LEVEL")
 
     # Onspring Configuration
-    onspring_api_url: str = Field(
-        default="https://api.onspring.com", alias="ONSPRING_API_URL"
-    )
+    onspring_api_url: str = Field(default="https://api.onspring.com", alias="ONSPRING_API_URL")
     onspring_api_key_secret: str = Field(
         ...,
         alias="ONSPRING_API_KEY_SECRET",
@@ -27,9 +26,7 @@ class Settings(BaseSettings):
     )
 
     # ARRMS Configuration
-    arrms_api_url: str = Field(
-        ..., alias="ARRMS_API_URL", description="ARRMS API base URL"
-    )
+    arrms_api_url: str = Field(..., alias="ARRMS_API_URL", description="ARRMS API base URL")
     arrms_api_key_secret: str = Field(
         ...,
         alias="ARRMS_API_KEY_SECRET",
@@ -40,20 +37,12 @@ class Settings(BaseSettings):
     aws_region: Optional[str] = Field(default=None, alias="AWS_REGION")
 
     # Operational Settings
-    request_timeout: int = Field(
-        default=30, description="HTTP request timeout in seconds"
-    )
-    max_retries: int = Field(
-        default=3, description="Maximum number of retry attempts for failed requests"
-    )
-    batch_size: int = Field(
-        default=100, description="Default batch size for bulk operations"
-    )
+    request_timeout: int = Field(default=30, description="HTTP request timeout in seconds")
+    max_retries: int = Field(default=3, description="Maximum number of retry attempts for failed requests")
+    batch_size: int = Field(default=100, description="Default batch size for bulk operations")
 
     # Field Mapping Configuration
-    onspring_questionnaire_app_id: Optional[int] = Field(
-        default=100, description="Onspring app ID for questionnaires"
-    )
+    onspring_questionnaire_app_id: Optional[int] = Field(default=100, description="Onspring app ID for questionnaires")
 
     class Config:
         """Pydantic configuration."""

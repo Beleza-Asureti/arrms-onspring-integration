@@ -6,12 +6,13 @@ Verifies connectivity to external services.
 """
 
 import os
-from typing import Dict, Any
+from typing import Any, Dict
+
 from aws_lambda_powertools import Logger, Tracer
 from aws_lambda_powertools.utilities.typing import LambdaContext
 
-from adapters.onspring_client import OnspringClient
 from adapters.arrms_client import ARRMSClient
+from adapters.onspring_client import OnspringClient
 from utils.response_builder import build_response
 
 logger = Logger()
@@ -60,9 +61,7 @@ def lambda_handler(event: Dict[str, Any], context: LambdaContext) -> Dict[str, A
         # health_status["checks"]["arrms"] = check_arrms_health()
 
         # Determine overall status
-        all_checks_pass = all(
-            status == "pass" for status in health_status["checks"].values()
-        )
+        all_checks_pass = all(status == "pass" for status in health_status["checks"].values())
 
         if not all_checks_pass:
             health_status["status"] = "degraded"
@@ -74,9 +73,7 @@ def lambda_handler(event: Dict[str, Any], context: LambdaContext) -> Dict[str, A
 
     except Exception as e:
         logger.exception("Health check failed")
-        return build_response(
-            status_code=503, body={"status": "unhealthy", "error": str(e)}
-        )
+        return build_response(status_code=503, body={"status": "unhealthy", "error": str(e)})
 
 
 @tracer.capture_method

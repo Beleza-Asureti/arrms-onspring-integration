@@ -9,14 +9,15 @@ import json
 import os
 import tempfile
 from datetime import datetime
-from typing import Dict, Any
-from aws_lambda_powertools import Logger, Tracer, Metrics
+from typing import Any, Dict
+
+from aws_lambda_powertools import Logger, Metrics, Tracer
 from aws_lambda_powertools.metrics import MetricUnit
 from aws_lambda_powertools.utilities.typing import LambdaContext
 
-from adapters.onspring_client import OnspringClient
 from adapters.arrms_client import ARRMSClient
-from utils.exceptions import ValidationError, IntegrationError
+from adapters.onspring_client import OnspringClient
+from utils.exceptions import IntegrationError, ValidationError
 from utils.response_builder import build_response
 
 logger = Logger()
@@ -69,18 +70,14 @@ def lambda_handler(event: Dict[str, Any], context: LambdaContext) -> Dict[str, A
             app_id = os.environ.get("ONSPRING_DEFAULT_APP_ID")
 
         if not app_id:
-            raise ValidationError(
-                "Missing AppId - ensure Onspring webhook includes AppId in body"
-            )
+            raise ValidationError("Missing AppId - ensure Onspring webhook includes AppId in body")
 
         try:
             app_id = int(app_id)
         except (ValueError, TypeError):
             raise ValidationError(f"Invalid AppId format: {app_id}")
 
-        logger.info(
-            "Processing webhook", extra={"record_id": record_id, "app_id": app_id}
-        )
+        logger.info("Processing webhook", extra={"record_id": record_id, "app_id": app_id})
 
         # Add metric for webhook received
         metrics.add_metric(name="WebhookReceived", unit=MetricUnit.Count, value=1)
@@ -110,9 +107,7 @@ def lambda_handler(event: Dict[str, Any], context: LambdaContext) -> Dict[str, A
         questionnaire_file = files[0]
         additional_files = files[1:] if len(files) > 1 else []
 
-        logger.info(
-            f"Processing {len(files)} total files: 1 questionnaire, {len(additional_files)} additional attachments"
-        )
+        logger.info(f"Processing {len(files)} total files: 1 questionnaire, {len(additional_files)} additional attachments")
 
         # Download questionnaire file from Onspring
         file_content = onspring_client.download_file(
@@ -124,20 +119,14 @@ def lambda_handler(event: Dict[str, Any], context: LambdaContext) -> Dict[str, A
         # Get file extension from original filename
         file_name = questionnaire_file.get("file_name")
         if not file_name:
-            raise ValidationError(
-                "Questionnaire file is missing filename in Onspring data"
-            )
+            raise ValidationError("Questionnaire file is missing filename in Onspring data")
 
         _, file_ext = os.path.splitext(file_name)
         if not file_ext:
-            raise ValidationError(
-                f"Questionnaire file '{file_name}' has no file extension"
-            )
+            raise ValidationError(f"Questionnaire file '{file_name}' has no file extension")
 
         # Save to temporary file for upload
-        with tempfile.NamedTemporaryFile(
-            mode="wb", suffix=file_ext, delete=False
-        ) as temp_file:
+        with tempfile.NamedTemporaryFile(mode="wb", suffix=file_ext, delete=False) as temp_file:
             temp_file.write(file_content)
             temp_file_path = temp_file.name
 
@@ -153,8 +142,7 @@ def lambda_handler(event: Dict[str, Any], context: LambdaContext) -> Dict[str, A
                 urgency=transformed_data.get("urgency"),
                 assessment_type=transformed_data.get("assessment_type"),
                 due_date=transformed_data.get("due_date"),
-                notes=transformed_data.get("notes")
-                or transformed_data.get("description"),
+                notes=transformed_data.get("notes") or transformed_data.get("description"),
             )
         finally:
             # Clean up temp file
@@ -173,18 +161,14 @@ def lambda_handler(event: Dict[str, Any], context: LambdaContext) -> Dict[str, A
                 },
             )
         else:
-            logger.warning(
-                f"External reference not found in response for {onspring_record_id}"
-            )
+            logger.warning(f"External reference not found in response for {onspring_record_id}")
 
         # Process additional file attachments
         files_synced = 0
         files_failed = 0
 
         if additional_files:
-            logger.info(
-                f"Processing {len(additional_files)} additional file attachments"
-            )
+            logger.info(f"Processing {len(additional_files)} additional file attachments")
 
             for file_info in additional_files:
                 try:
@@ -223,13 +207,9 @@ def lambda_handler(event: Dict[str, Any], context: LambdaContext) -> Dict[str, A
 
             # Add file sync metrics
             if files_synced > 0:
-                metrics.add_metric(
-                    name="FilesSynced", unit=MetricUnit.Count, value=files_synced
-                )
+                metrics.add_metric(name="FilesSynced", unit=MetricUnit.Count, value=files_synced)
             if files_failed > 0:
-                metrics.add_metric(
-                    name="FilesSyncFailed", unit=MetricUnit.Count, value=files_failed
-                )
+                metrics.add_metric(name="FilesSyncFailed", unit=MetricUnit.Count, value=files_failed)
 
         # Add success metric
         metrics.add_metric(name="WebhookProcessed", unit=MetricUnit.Count, value=1)
@@ -257,23 +237,15 @@ def lambda_handler(event: Dict[str, Any], context: LambdaContext) -> Dict[str, A
 
     except ValidationError as e:
         logger.error("Validation error", extra={"error": str(e)})
-        metrics.add_metric(
-            name="WebhookValidationError", unit=MetricUnit.Count, value=1
-        )
+        metrics.add_metric(name="WebhookValidationError", unit=MetricUnit.Count, value=1)
         return build_response(status_code=400, body={"error": str(e)})
 
     except IntegrationError as e:
         logger.error("Integration error", extra={"error": str(e)})
-        metrics.add_metric(
-            name="WebhookIntegrationError", unit=MetricUnit.Count, value=1
-        )
-        return build_response(
-            status_code=500, body={"error": "Integration error occurred"}
-        )
+        metrics.add_metric(name="WebhookIntegrationError", unit=MetricUnit.Count, value=1)
+        return build_response(status_code=500, body={"error": "Integration error occurred"})
 
     except Exception:
         logger.exception("Unexpected error processing webhook")
-        metrics.add_metric(
-            name="WebhookUnexpectedError", unit=MetricUnit.Count, value=1
-        )
+        metrics.add_metric(name="WebhookUnexpectedError", unit=MetricUnit.Count, value=1)
         return build_response(status_code=500, body={"error": "Internal server error"})

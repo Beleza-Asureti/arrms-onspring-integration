@@ -9,14 +9,15 @@ import json
 import os
 import tempfile
 from datetime import datetime
-from typing import Dict, Any, List
-from aws_lambda_powertools import Logger, Tracer, Metrics
+from typing import Any, Dict, List
+
+from aws_lambda_powertools import Logger, Metrics, Tracer
 from aws_lambda_powertools.metrics import MetricUnit
 from aws_lambda_powertools.utilities.typing import LambdaContext
 
-from adapters.onspring_client import OnspringClient
 from adapters.arrms_client import ARRMSClient
-from utils.exceptions import ValidationError, IntegrationError
+from adapters.onspring_client import OnspringClient
+from utils.exceptions import IntegrationError, ValidationError
 from utils.response_builder import build_response
 
 logger = Logger()
@@ -63,20 +64,14 @@ def lambda_handler(event: Dict[str, Any], context: LambdaContext) -> Dict[str, A
 
         # Retrieve records from Onspring
         logger.info("Retrieving records from Onspring")
-        records = onspring_client.get_records(
-            app_id=app_id, filter_criteria=filter_criteria, page_size=batch_size
-        )
+        records = onspring_client.get_records(app_id=app_id, filter_criteria=filter_criteria, page_size=batch_size)
 
         total_records = len(records)
         logger.info(f"Retrieved {total_records} records from Onspring")
-        metrics.add_metric(
-            name="RecordsRetrieved", unit=MetricUnit.Count, value=total_records
-        )
+        metrics.add_metric(name="RecordsRetrieved", unit=MetricUnit.Count, value=total_records)
 
         # Process and sync records
-        sync_results = sync_records_to_arrms(
-            records=records, arrms_client=arrms_client, onspring_client=onspring_client
-        )
+        sync_results = sync_records_to_arrms(records=records, arrms_client=arrms_client, onspring_client=onspring_client)
 
         # Log summary
         successful = sync_results["successful"]
@@ -95,20 +90,12 @@ def lambda_handler(event: Dict[str, Any], context: LambdaContext) -> Dict[str, A
             },
         )
 
-        metrics.add_metric(
-            name="RecordsSyncedSuccessfully", unit=MetricUnit.Count, value=successful
-        )
-        metrics.add_metric(
-            name="RecordsSyncedFailed", unit=MetricUnit.Count, value=failed
-        )
+        metrics.add_metric(name="RecordsSyncedSuccessfully", unit=MetricUnit.Count, value=successful)
+        metrics.add_metric(name="RecordsSyncedFailed", unit=MetricUnit.Count, value=failed)
         if files_synced > 0:
-            metrics.add_metric(
-                name="FilesSynced", unit=MetricUnit.Count, value=files_synced
-            )
+            metrics.add_metric(name="FilesSynced", unit=MetricUnit.Count, value=files_synced)
         if files_failed > 0:
-            metrics.add_metric(
-                name="FilesSyncFailed", unit=MetricUnit.Count, value=files_failed
-            )
+            metrics.add_metric(name="FilesSyncFailed", unit=MetricUnit.Count, value=files_failed)
 
         return build_response(
             status_code=200,
@@ -133,9 +120,7 @@ def lambda_handler(event: Dict[str, Any], context: LambdaContext) -> Dict[str, A
     except IntegrationError as e:
         logger.error("Integration error", extra={"error": str(e)})
         metrics.add_metric(name="SyncIntegrationError", unit=MetricUnit.Count, value=1)
-        return build_response(
-            status_code=500, body={"error": "Integration error occurred"}
-        )
+        return build_response(status_code=500, body={"error": "Integration error occurred"})
 
     except Exception:
         logger.exception("Unexpected error during sync")
@@ -201,9 +186,7 @@ def sync_records_to_arrms(
             files = onspring_client.get_record_files(record)
 
             if not files or len(files) == 0:
-                logger.warning(
-                    f"No files found for record {onspring_record_id}, skipping"
-                )
+                logger.warning(f"No files found for record {onspring_record_id}, skipping")
                 failed += 1
                 errors.append(
                     {
@@ -245,9 +228,7 @@ def sync_records_to_arrms(
                     )
 
                 # Save to temporary file for upload
-                with tempfile.NamedTemporaryFile(
-                    mode="wb", suffix=file_ext, delete=False
-                ) as temp_file:
+                with tempfile.NamedTemporaryFile(mode="wb", suffix=file_ext, delete=False) as temp_file:
                     temp_file.write(file_content)
                     temp_file_path = temp_file.name
 
@@ -262,8 +243,7 @@ def sync_records_to_arrms(
                     urgency=transformed_record.get("urgency"),
                     assessment_type=transformed_record.get("assessment_type"),
                     due_date=transformed_record.get("due_date"),
-                    notes=transformed_record.get("notes")
-                    or transformed_record.get("description"),
+                    notes=transformed_record.get("notes") or transformed_record.get("description"),
                 )
 
                 # Clean up temp file
@@ -282,9 +262,7 @@ def sync_records_to_arrms(
                         },
                     )
                 else:
-                    logger.warning(
-                        f"External reference not found in response for {onspring_record_id}"
-                    )
+                    logger.warning(f"External reference not found in response for {onspring_record_id}")
 
             except Exception as upload_error:
                 logger.error(
@@ -321,9 +299,7 @@ def sync_records_to_arrms(
                         )
 
                         files_synced += 1
-                        logger.debug(
-                            f"Synced supporting file: {file_info['file_name']}"
-                        )
+                        logger.debug(f"Synced supporting file: {file_info['file_name']}")
 
                     except Exception as file_error:
                         files_failed += 1
@@ -377,9 +353,7 @@ def transform_record(onspring_record: Dict[str, Any]) -> Dict[str, Any]:
     """
     from datetime import datetime
 
-    logger.debug(
-        "Transforming record", extra={"record_id": onspring_record.get("recordId")}
-    )
+    logger.debug("Transforming record", extra={"record_id": onspring_record.get("recordId")})
 
     fields = onspring_record.get("fields", {})
 

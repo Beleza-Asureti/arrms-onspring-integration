@@ -5,17 +5,18 @@ Adapter for interacting with Onspring API.
 Handles authentication, request/response processing, and error handling.
 """
 
-import os
 import json
-from typing import Dict, Any, List, Optional
+import os
+from typing import Any, Dict, List, Optional
+
+import boto3
 import requests
+from aws_lambda_powertools import Logger
+from botocore.exceptions import ClientError
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
-from aws_lambda_powertools import Logger
-import boto3
-from botocore.exceptions import ClientError
 
-from utils.exceptions import OnspringAPIError, AuthenticationError
+from utils.exceptions import AuthenticationError, OnspringAPIError
 
 logger = Logger(child=True)
 
@@ -51,9 +52,7 @@ class OnspringClient:
         """
         try:
             secrets_client = boto3.client("secretsmanager")
-            response = secrets_client.get_secret_value(
-                SecretId=self.api_key_secret_name
-            )
+            response = secrets_client.get_secret_value(SecretId=self.api_key_secret_name)
 
             # Handle both string and JSON secrets
             if "SecretString" in response:
@@ -245,9 +244,7 @@ class OnspringClient:
             logger.error(f"Request error creating record: {str(e)}")
             raise OnspringAPIError(f"Request failed: {str(e)}")
 
-    def update_record(
-        self, app_id: int, record_id: int, field_data: Dict[str, Any]
-    ) -> Dict[str, Any]:
+    def update_record(self, app_id: int, record_id: int, field_data: Dict[str, Any]) -> Dict[str, Any]:
         """
         Update an existing record in Onspring.
 
@@ -315,9 +312,7 @@ class OnspringClient:
             logger.error(f"Request error deleting record: {str(e)}")
             raise OnspringAPIError(f"Request failed: {str(e)}")
 
-    def get_file_info(
-        self, record_id: int, field_id: int, file_id: int
-    ) -> Dict[str, Any]:
+    def get_file_info(self, record_id: int, field_id: int, file_id: int) -> Dict[str, Any]:
         """
         Get file attachment information from Onspring.
 
@@ -334,17 +329,13 @@ class OnspringClient:
         """
         try:
             url = f"{self.base_url}/Files/recordId/{record_id}/fieldId/{field_id}/fileId/{file_id}"
-            logger.info(
-                f"Getting file info for file {file_id} in record {record_id}, field {field_id}"
-            )
+            logger.info(f"Getting file info for file {file_id} in record {record_id}, field {field_id}")
 
             response = self.session.get(url, timeout=30)
             response.raise_for_status()
 
             data = response.json()
-            logger.debug(
-                f"Retrieved file info for file {file_id}", extra={"data": data}
-            )
+            logger.debug(f"Retrieved file info for file {file_id}", extra={"data": data})
 
             return data
 
@@ -372,9 +363,7 @@ class OnspringClient:
         """
         try:
             url = f"{self.base_url}/Files/recordId/{record_id}/fieldId/{field_id}/fileId/{file_id}/file"
-            logger.info(
-                f"Downloading file {file_id} from record {record_id}, field {field_id}"
-            )
+            logger.info(f"Downloading file {file_id} from record {record_id}, field {field_id}")
 
             response = self.session.get(url, timeout=60, stream=True)
             response.raise_for_status()
@@ -423,9 +412,7 @@ class OnspringClient:
                 # Check if first item looks like a file object
                 first_item = value[0]
                 if isinstance(first_item, dict) and "fileId" in first_item:
-                    logger.info(
-                        f"Found file field {field_id} with type '{field_type}' containing {len(value)} files"
-                    )
+                    logger.info(f"Found file field {field_id} with type '{field_type}' containing {len(value)} files")
 
                     for file_item in value:
                         file_info = {
@@ -443,7 +430,5 @@ class OnspringClient:
                             extra={"file_info": file_info},
                         )
 
-        logger.info(
-            f"Found {len(files)} total file attachments in record {record_data.get('recordId')}"
-        )
+        logger.info(f"Found {len(files)} total file attachments in record {record_data.get('recordId')}")
         return files

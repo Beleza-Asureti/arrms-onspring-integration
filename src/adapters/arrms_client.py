@@ -5,16 +5,17 @@ Adapter for interacting with ARRMS (Asureti Risk & Resilience Management System)
 Handles authentication, request/response processing, and error handling.
 """
 
-import os
 import json
-from typing import Dict, Any, List, Optional
+import os
 from datetime import datetime
+from typing import Any, Dict, List, Optional
+
+import boto3
 import requests
+from aws_lambda_powertools import Logger
+from botocore.exceptions import ClientError
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
-from aws_lambda_powertools import Logger
-import boto3
-from botocore.exceptions import ClientError
 
 from utils.exceptions import ARRMSAPIError, AuthenticationError
 
@@ -55,9 +56,7 @@ class ARRMSClient:
         """
         try:
             secrets_client = boto3.client("secretsmanager")
-            response = secrets_client.get_secret_value(
-                SecretId=self.api_key_secret_name
-            )
+            response = secrets_client.get_secret_value(SecretId=self.api_key_secret_name)
 
             # Handle both string and JSON secrets
             if "SecretString" in response:
@@ -170,9 +169,7 @@ class ARRMSClient:
             import os
 
             url = f"{self.base_url}/api/v1/questionnaires/upload"
-            logger.info(
-                f"Uploading questionnaire from {file_path} with external_id {external_id}"
-            )
+            logger.info(f"Uploading questionnaire from {file_path} with external_id {external_id}")
 
             # Prepare multipart form data
             with open(file_path, "rb") as f:
@@ -401,9 +398,7 @@ class ARRMSClient:
             response.raise_for_status()
 
             result = response.json()
-            logger.info(
-                f"Uploaded document '{file_name}' to questionnaire {questionnaire_id}"
-            )
+            logger.info(f"Uploaded document '{file_name}' to questionnaire {questionnaire_id}")
 
             return result
 
