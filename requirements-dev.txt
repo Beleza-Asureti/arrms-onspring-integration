@@ -7,9 +7,13 @@ pytest-cov==4.1.0
 pytest-mock==3.12.0
 moto==5.0.0
 
+# AWS SDK dependencies for testing Lambda Powertools
+aws-xray-sdk==2.12.0
+
 # Code quality
 ruff==0.8.4
 mypy==1.8.0
+pre-commit==3.6.0
 
 # AWS SAM CLI for local testing
 # Install separately: pip install aws-sam-cli
