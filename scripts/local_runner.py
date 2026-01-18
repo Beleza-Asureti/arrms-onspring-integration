@@ -27,9 +27,6 @@ from datetime import datetime
 from typing import Any, Dict, Optional
 from unittest.mock import patch, MagicMock
 
-# Add src to path for imports
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
-
 import requests
 from requests import Response
 
@@ -278,11 +275,48 @@ def load_env_file(filepath: str):
                     logger.debug(f"  {key}={value}")
 
 
+def transform_record(onspring_record: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Transform Onspring questionnaire record to ARRMS format.
+
+    This is a standalone copy of the transform logic to avoid AWS Lambda Powertools dependency.
+    """
+    fields = onspring_record.get("fields", {})
+
+    def get_field_value(field_name: str, default=None):
+        field_data = fields.get(field_name, {})
+        return field_data.get("value", default)
+
+    transformed = {
+        "title": get_field_value("Title", "Untitled Questionnaire"),
+        "client_name": get_field_value("Client"),
+        "description": get_field_value("Description"),
+        "due_date": get_field_value("DueDate"),
+        "external_id": str(onspring_record.get("recordId")),
+        "external_source": "onspring",
+        "external_metadata": {
+            "app_id": onspring_record.get("appId"),
+            "onspring_status": get_field_value("Status"),
+            "onspring_url": f"https://app.onspring.com/record/{onspring_record.get('recordId')}",
+            "field_ids": {
+                "title": fields.get("Title", {}).get("fieldId"),
+                "client": fields.get("Client", {}).get("fieldId"),
+                "due_date": fields.get("DueDate", {}).get("fieldId"),
+                "status": fields.get("Status", {}).get("fieldId"),
+                "description": fields.get("Description", {}).get("fieldId"),
+            },
+            "synced_at": datetime.utcnow().isoformat(),
+            "sync_type": "local_test",
+        },
+    }
+
+    return transformed
+
+
 def run_webhook_flow(mock_client, arrms_client, record_id: int = 12345, app_id: int = 100):
     """
     Simulate the webhook flow: receive webhook -> fetch from Onspring -> sync to ARRMS.
     """
-    from handlers.onspring_to_arrms import transform_record
 
     logger.info("=" * 80)
     logger.info(f"SIMULATING WEBHOOK FLOW: Record {record_id}, App {app_id}")
@@ -376,7 +410,6 @@ def run_batch_sync(mock_client, arrms_client, app_id: int = 100, batch_size: int
     """
     Simulate batch sync flow: fetch multiple records from Onspring -> sync to ARRMS.
     """
-    from handlers.onspring_to_arrms import transform_record
 
     logger.info("=" * 80)
     logger.info(f"SIMULATING BATCH SYNC: App {app_id}, Batch Size {batch_size}")
