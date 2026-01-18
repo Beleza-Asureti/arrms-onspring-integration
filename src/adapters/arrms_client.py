@@ -412,9 +412,7 @@ class ARRMSClient:
             logger.error(f"Request error uploading document to ARRMS: {str(e)}")
             raise ARRMSAPIError(f"Request failed: {str(e)}")
 
-    def get_questionnaire_statistics(
-        self, external_id: str, external_source: str = "onspring"
-    ) -> Dict[str, Any]:
+    def get_questionnaire_statistics(self, external_id: str, external_source: str = "onspring") -> Dict[str, Any]:
         """
         Retrieve detailed questionnaire statistics from ARRMS.
 
