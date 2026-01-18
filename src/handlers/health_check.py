@@ -11,9 +11,9 @@ from typing import Any, Dict
 from aws_lambda_powertools import Logger, Tracer
 from aws_lambda_powertools.utilities.typing import LambdaContext
 
-from src.adapters.arrms_client import ARRMSClient
-from src.adapters.onspring_client import OnspringClient
-from src.utils.response_builder import build_response
+from adapters.arrms_client import ARRMSClient
+from adapters.onspring_client import OnspringClient
+from utils.response_builder import build_response
 
 logger = Logger()
 tracer = Tracer()

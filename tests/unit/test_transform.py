@@ -2,7 +2,7 @@
 Unit tests for Onspring to ARRMS transformation logic
 """
 
-from src.handlers.onspring_to_arrms import transform_record
+from handlers.onspring_to_arrms import transform_record
 
 
 def test_transform_record_with_all_fields():

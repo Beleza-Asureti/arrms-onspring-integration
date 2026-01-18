@@ -7,7 +7,7 @@ from unittest.mock import Mock, mock_open, patch
 
 import pytest
 
-from src.adapters.arrms_client import ARRMSClient
+from adapters.arrms_client import ARRMSClient
 
 
 @pytest.fixture
