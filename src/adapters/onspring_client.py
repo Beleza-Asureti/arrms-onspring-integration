@@ -404,19 +404,27 @@ class OnspringClient:
         Note:
             This method parses the fieldData array to find file/attachment fields
             and extracts file metadata without downloading the actual files.
+            Looks for any field containing file data regardless of type name.
         """
         files = []
         field_data = record_data.get("fieldData", [])
 
         for field in field_data:
             field_type = field.get("type")
+            field_id = field.get("fieldId")
+            value = field.get("value")
 
-            # Check for file or attachment list types
-            if field_type in ["FileList", "AttachmentList"]:
-                field_id = field.get("fieldId")
-                value = field.get("value", [])
+            # Log field types for debugging
+            logger.debug(f"Processing field {field_id} with type '{field_type}'")
 
-                if isinstance(value, list):
+            # Check if value is a list containing file objects
+            # File objects have fileId, fileName, etc.
+            if isinstance(value, list) and len(value) > 0:
+                # Check if first item looks like a file object
+                first_item = value[0]
+                if isinstance(first_item, dict) and "fileId" in first_item:
+                    logger.info(f"Found file field {field_id} with type '{field_type}' containing {len(value)} files")
+
                     for file_item in value:
                         file_info = {
                             "record_id": record_data.get("recordId"),
@@ -433,5 +441,5 @@ class OnspringClient:
                             extra={"file_info": file_info},
                         )
 
-        logger.info(f"Found {len(files)} file attachments in record")
+        logger.info(f"Found {len(files)} total file attachments in record {record_data.get('recordId')}")
         return files

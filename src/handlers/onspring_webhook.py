@@ -96,29 +96,22 @@ def lambda_handler(event: Dict[str, Any], context: LambdaContext) -> Dict[str, A
         transformed_data = transform_record(record_data)
         onspring_record_id = str(record_id)
 
-        # Get questionnaire files from Onspring
+        # Get all files from Onspring attachments field
         files = onspring_client.get_record_files(record_data)
 
-        # Find the main questionnaire file (look for Excel files)
-        questionnaire_file = None
-        additional_files = []
-
-        for file_info in files:
-            file_name = file_info.get("file_name", "")
-            if file_name.endswith((".xlsx", ".xls")):
-                # This is likely the questionnaire file
-                if not questionnaire_file:
-                    questionnaire_file = file_info
-                else:
-                    additional_files.append(file_info)
-            else:
-                # Other supporting documents
-                additional_files.append(file_info)
-
-        if not questionnaire_file:
+        if not files or len(files) == 0:
             raise ValidationError(
-                f"No Excel questionnaire file found for record {onspring_record_id}"
+                f"No files found for record {onspring_record_id}"
             )
+
+        # Use the first file as the questionnaire file
+        # All remaining files are treated as additional attachments
+        questionnaire_file = files[0]
+        additional_files = files[1:] if len(files) > 1 else []
+
+        logger.info(
+            f"Processing {len(files)} total files: 1 questionnaire, {len(additional_files)} additional attachments"
+        )
 
         # Download questionnaire file from Onspring
         file_content = onspring_client.download_file(
@@ -127,9 +120,16 @@ def lambda_handler(event: Dict[str, Any], context: LambdaContext) -> Dict[str, A
             file_id=questionnaire_file["file_id"],
         )
 
+        # Get file extension from original filename
+        import os as os_path
+        file_name = questionnaire_file.get("file_name", "questionnaire.bin")
+        _, file_ext = os_path.splitext(file_name)
+        if not file_ext:
+            file_ext = ".bin"  # Default extension if none found
+
         # Save to temporary file for upload
         with tempfile.NamedTemporaryFile(
-            mode="wb", suffix=".xlsx", delete=False
+            mode="wb", suffix=file_ext, delete=False
         ) as temp_file:
             temp_file.write(file_content)
             temp_file_path = temp_file.name
