@@ -131,37 +131,64 @@ def lambda_handler(event: Dict[str, Any], context: LambdaContext) -> Dict[str, A
             temp_file_path = temp_file.name
 
         try:
-            # Upload questionnaire to ARRMS with external tracking
-            result = arrms_client.upload_questionnaire(
-                file_path=temp_file_path,
+            # Check if questionnaire already exists in ARRMS
+            existing_questionnaire = arrms_client.find_questionnaire_by_external_id(
                 external_id=onspring_record_id,
                 external_source="onspring",
-                external_metadata=transformed_data.get("external_metadata", {}),
-                # Additional form fields from transformed record
-                requester_name=transformed_data.get("requester_name"),
-                urgency=transformed_data.get("urgency"),
-                assessment_type=transformed_data.get("assessment_type"),
-                due_date=transformed_data.get("due_date"),
-                notes=transformed_data.get("notes") or transformed_data.get("description"),
             )
+
+            if existing_questionnaire:
+                # Update existing questionnaire file
+                logger.info(
+                    f"Found existing questionnaire {existing_questionnaire.get('id')} for "
+                    f"Onspring record {onspring_record_id}, updating file"
+                )
+                result = arrms_client.update_questionnaire_file(
+                    questionnaire_id=existing_questionnaire.get("id"),
+                    file_path=temp_file_path,
+                    external_metadata=transformed_data.get("external_metadata", {}),
+                    # Additional form fields from transformed record
+                    requester_name=transformed_data.get("requester_name"),
+                    urgency=transformed_data.get("urgency"),
+                    assessment_type=transformed_data.get("assessment_type"),
+                    due_date=transformed_data.get("due_date"),
+                    notes=transformed_data.get("notes") or transformed_data.get("description"),
+                )
+                arrms_questionnaire_id = existing_questionnaire.get("id")
+                logger.info(f"Updated questionnaire {arrms_questionnaire_id} with new file from Onspring")
+            else:
+                # Upload new questionnaire to ARRMS with external tracking
+                logger.info(f"No existing questionnaire found for {onspring_record_id}, creating new one")
+                result = arrms_client.upload_questionnaire(
+                    file_path=temp_file_path,
+                    external_id=onspring_record_id,
+                    external_source="onspring",
+                    external_metadata=transformed_data.get("external_metadata", {}),
+                    # Additional form fields from transformed record
+                    requester_name=transformed_data.get("requester_name"),
+                    urgency=transformed_data.get("urgency"),
+                    assessment_type=transformed_data.get("assessment_type"),
+                    due_date=transformed_data.get("due_date"),
+                    notes=transformed_data.get("notes") or transformed_data.get("description"),
+                )
+                arrms_questionnaire_id = result.get("id")
+
+                # Verify external reference was created
+                external_ref = arrms_client.parse_external_reference(result, "onspring")
+                if external_ref:
+                    logger.info(
+                        f"Created new questionnaire in ARRMS {arrms_questionnaire_id} "
+                        f"for Onspring record {onspring_record_id}",
+                        extra={
+                            "external_reference_id": external_ref["id"],
+                            "external_id": external_ref["external_id"],
+                        },
+                    )
+                else:
+                    logger.warning(f"External reference not found in response for {onspring_record_id}")
         finally:
             # Clean up temp file
             os.unlink(temp_file_path)
-
-        arrms_questionnaire_id = result.get("id")
-
-        # Verify external reference was created
-        external_ref = arrms_client.parse_external_reference(result, "onspring")
-        if external_ref:
-            logger.info(
-                f"Synced Onspring record {onspring_record_id} to ARRMS {arrms_questionnaire_id}",
-                extra={
-                    "external_reference_id": external_ref["id"],
-                    "external_id": external_ref["external_id"],
-                },
-            )
-        else:
-            logger.warning(f"External reference not found in response for {onspring_record_id}")
 
         # Process additional file attachments
         files_synced = 0
