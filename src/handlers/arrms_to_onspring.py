@@ -468,7 +468,19 @@ def update_onspring_record(
         # Get field ID mappings from environment
         # Format: {"Field Name": field_id, ...}
         field_mapping_json = os.environ.get("ONSPRING_FIELD_MAPPING", "{}")
-        field_mapping = json.loads(field_mapping_json)
+
+        try:
+            field_mapping = json.loads(field_mapping_json)
+        except json.JSONDecodeError as e:
+            logger.error(
+                "Invalid ONSPRING_FIELD_MAPPING JSON",
+                extra={
+                    "error": str(e),
+                    "raw_value": field_mapping_json[:200],  # First 200 chars for debugging
+                    "length": len(field_mapping_json),
+                },
+            )
+            raise ValidationError(f"Invalid ONSPRING_FIELD_MAPPING JSON: {str(e)}")
 
         # Update each field
         for field_name, value in field_values.items():
