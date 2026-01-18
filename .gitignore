@@ -63,3 +63,4 @@ credentials.json
 
 # Local development
 local_config.py
+.local/

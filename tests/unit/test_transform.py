@@ -2,7 +2,6 @@
 Unit tests for Onspring to ARRMS transformation logic
 """
 
-import pytest
 from src.handlers.onspring_to_arrms import transform_record
 
 
@@ -131,10 +130,7 @@ def test_transform_record_creates_onspring_url():
 
     result = transform_record(onspring_record)
 
-    assert (
-        result["external_metadata"]["onspring_url"]
-        == "https://app.onspring.com/record/54321"
-    )
+    assert result["external_metadata"]["onspring_url"] == "https://app.onspring.com/record/54321"
 
 
 def test_transform_record_with_empty_fields():

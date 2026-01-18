@@ -168,7 +168,7 @@ class ARRMSClient:
         try:
             import os
 
-            url = f"{self.base_url}/api/v1/questionnaires/upload"
+            url = f"{self.base_url}/api/v1/integrations/questionnaires/upload"
             logger.info(f"Uploading questionnaire from {file_path} with external_id {external_id}")
 
             # Prepare multipart form data

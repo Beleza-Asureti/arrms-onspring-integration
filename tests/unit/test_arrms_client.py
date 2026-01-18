@@ -3,10 +3,11 @@ Unit tests for ARRMS Client
 """
 
 import json
+from unittest.mock import Mock, mock_open, patch
+
 import pytest
-from unittest.mock import Mock, MagicMock, patch, mock_open
+
 from src.adapters.arrms_client import ARRMSClient
-from src.utils.exceptions import ARRMSAPIError
 
 
 @pytest.fixture
@@ -26,9 +27,7 @@ def arrms_client(monkeypatch, mock_session):
     with patch("src.adapters.arrms_client.boto3.client") as mock_boto:
         # Mock Secrets Manager response
         mock_secrets = Mock()
-        mock_secrets.get_secret_value.return_value = {
-            "SecretString": "test-api-key-12345"
-        }
+        mock_secrets.get_secret_value.return_value = {"SecretString": "test-api-key-12345"}
         mock_boto.return_value = mock_secrets
 
         client = ARRMSClient()
@@ -44,9 +43,7 @@ def test_create_session_uses_api_key_header(monkeypatch):
 
     with patch("src.adapters.arrms_client.boto3.client") as mock_boto:
         mock_secrets = Mock()
-        mock_secrets.get_secret_value.return_value = {
-            "SecretString": "test-api-key-12345"
-        }
+        mock_secrets.get_secret_value.return_value = {"SecretString": "test-api-key-12345"}
         mock_boto.return_value = mock_secrets
 
         client = ARRMSClient()
@@ -96,8 +93,8 @@ def test_upload_questionnaire_with_external_id(arrms_client, mock_session):
     mock_session.post.assert_called_once()
     call_args = mock_session.post.call_args
 
-    # Verify URL
-    assert call_args[0][0] == "https://arrms.example.com/api/v1/questionnaires/upload"
+    # Verify URL (integrations endpoint for API key auth)
+    assert call_args[0][0] == "https://arrms.example.com/api/v1/integrations/questionnaires/upload"
 
     # Verify form data includes external tracking and additional fields
     data = call_args[1]["data"]
@@ -212,10 +209,7 @@ def test_upload_document_with_metadata(arrms_client, mock_session):
     call_args = mock_session.post.call_args
 
     # Verify URL
-    assert (
-        call_args[0][0]
-        == "https://arrms.example.com/api/v1/questionnaires/uuid-123/documents"
-    )
+    assert call_args[0][0] == "https://arrms.example.com/api/v1/questionnaires/uuid-123/documents"
 
     # Verify files and data
     assert "files" in call_args[1]
