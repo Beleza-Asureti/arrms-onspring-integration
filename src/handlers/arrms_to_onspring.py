@@ -455,9 +455,14 @@ def update_onspring_record(
 
     try:
         # Get app_id from environment
-        app_id = int(os.environ.get("ONSPRING_DEFAULT_APP_ID", "0"))
-        if not app_id:
+        app_id_str = os.environ.get("ONSPRING_DEFAULT_APP_ID", "").strip()
+        if not app_id_str:
             raise ValidationError("ONSPRING_DEFAULT_APP_ID not configured")
+
+        try:
+            app_id = int(app_id_str)
+        except ValueError:
+            raise ValidationError(f"Invalid ONSPRING_DEFAULT_APP_ID: {app_id_str}")
 
         # Get field ID mappings from environment
         # Format: {"Field Name": field_id, ...}
