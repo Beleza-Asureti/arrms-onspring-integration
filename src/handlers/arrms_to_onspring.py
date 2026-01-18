@@ -310,7 +310,7 @@ def calculate_onspring_fields(arrms_stats: Dict[str, Any]) -> Dict[str, Any]:
 
     Maps ARRMS data to Onspring fields per lambda-onspring-sync.md spec:
     - Question counts (total, complete, open)
-    - Confidence distribution (very_high, high, medium, low)
+    - Confidence distribution (>80%, >50-<80%, >25-<50%, <25%)
     - Status calculation (Not Started, Request in Process, Ready for Validation)
 
     Args:
@@ -340,10 +340,11 @@ def calculate_onspring_fields(arrms_stats: Dict[str, Any]) -> Dict[str, Any]:
         "Open Assessment Questions": summary.get("unanswered_questions", 0),
         # Confidence distribution
         # Map ARRMS confidence levels to Onspring fields
-        "High Confidence Questions": confidence_dist.get("very_high", 0),  # >= 0.90
-        "Medium-High Confidence": confidence_dist.get("high", 0),  # 0.70-0.90
-        "Medium-Low Confidence": confidence_dist.get("medium", 0),  # 0.50-0.70
-        "Low Confidence Questions": confidence_dist.get("low", 0),  # < 0.50
+        # Onspring fields expect: >80%, >50-<80%, >25-<50%, <25%
+        "High Confidence Questions": confidence_dist.get("very_high", 0),  # >80%
+        "Medium-High Confidence": confidence_dist.get("high", 0),  # >50% - <80%
+        "Medium-Low Confidence": confidence_dist.get("medium", 0),  # >25% - <50%
+        "Low Confidence Questions": confidence_dist.get("low", 0),  # <25%
         # Status
         "Status": onspring_status,
     }
