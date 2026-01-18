@@ -411,3 +411,55 @@ class ARRMSClient:
         except requests.RequestException as e:
             logger.error(f"Request error uploading document to ARRMS: {str(e)}")
             raise ARRMSAPIError(f"Request failed: {str(e)}")
+
+    def get_questionnaire_statistics(
+        self, external_id: str, external_source: str = "onspring"
+    ) -> Dict[str, Any]:
+        """
+        Retrieve detailed questionnaire statistics from ARRMS.
+
+        Uses the integration statistics endpoint to fetch:
+        - Question counts (total, answered, approved, unanswered)
+        - Confidence distribution (very_high, high, medium, low)
+        - Individual question details
+        - Metadata and document URLs
+
+        Args:
+            external_id: External system ID (e.g., "onspring-12345" or "12345")
+            external_source: External system identifier (default: "onspring")
+
+        Returns:
+            Statistics response with summary and question details
+
+        Raises:
+            ARRMSAPIError: If API request fails
+        """
+        try:
+            url = f"{self.base_url}/api/v1/integrations/questionnaires/{external_id}/statistics"
+            logger.info(f"Fetching statistics for questionnaire {external_id}")
+
+            params = {"external_source": external_source}
+
+            response = self.session.get(url, params=params, timeout=30)
+            response.raise_for_status()
+
+            data = response.json()
+            logger.info(
+                f"Retrieved statistics for questionnaire {external_id}",
+                extra={
+                    "questionnaire_id": data.get("id"),
+                    "total_questions": data.get("summary", {}).get("total_questions"),
+                    "approved_questions": data.get("summary", {}).get("approved_questions"),
+                },
+            )
+
+            return data
+
+        except requests.HTTPError as e:
+            logger.error(f"HTTP error fetching statistics: {str(e)}")
+            if e.response is not None:
+                logger.error(f"Response body: {e.response.text}")
+            raise ARRMSAPIError(f"Failed to fetch statistics for {external_id}: {str(e)}")
+        except requests.RequestException as e:
+            logger.error(f"Request error fetching statistics: {str(e)}")
+            raise ARRMSAPIError(f"Request failed: {str(e)}")

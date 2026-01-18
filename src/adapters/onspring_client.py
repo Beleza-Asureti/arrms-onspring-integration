@@ -432,3 +432,27 @@ class OnspringClient:
 
         logger.info(f"Found {len(files)} total file attachments in record {record_data.get('recordId')}")
         return files
+
+    def update_field_value(self, app_id: int, record_id: int, field_id: int, value: Any) -> Dict[str, Any]:
+        """
+        Update a single field value in an Onspring record.
+
+        Convenience method for updating individual fields without fetching the full record.
+
+        Args:
+            app_id: Onspring application ID
+            record_id: Record ID to update
+            field_id: Field ID to update
+            value: New value for the field
+
+        Returns:
+            Update response from Onspring
+
+        Raises:
+            OnspringAPIError: If API request fails
+        """
+        # Prepare field data in Onspring format
+        field_data = {str(field_id): {"value": value}}
+
+        # Use existing update_record method
+        return self.update_record(app_id=app_id, record_id=record_id, field_data=field_data)
