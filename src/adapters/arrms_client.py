@@ -461,3 +461,123 @@ class ARRMSClient:
         except requests.RequestException as e:
             logger.error(f"Request error fetching statistics: {str(e)}")
             raise ARRMSAPIError(f"Request failed: {str(e)}")
+
+    def find_questionnaire_by_external_id(
+        self, external_id: str, external_source: str = "onspring"
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Find an existing questionnaire in ARRMS by external system ID.
+
+        This prevents duplicate questionnaire creation when syncing from Onspring.
+
+        Args:
+            external_id: External system ID (e.g., Onspring record ID)
+            external_source: External system identifier (default: "onspring")
+
+        Returns:
+            Questionnaire data if found, None if not found
+
+        Raises:
+            ARRMSAPIError: If API request fails (excluding 404)
+        """
+        try:
+            url = f"{self.base_url}/api/v1/integrations/questionnaires/find"
+            logger.info(f"Searching for questionnaire with external_id {external_id}")
+
+            params = {"external_id": external_id, "external_source": external_source}
+
+            response = self.session.get(url, params=params, timeout=30)
+
+            # 404 means not found - return None
+            if response.status_code == 404:
+                logger.info(f"No existing questionnaire found for external_id {external_id}")
+                return None
+
+            response.raise_for_status()
+
+            data = response.json()
+            logger.info(
+                f"Found existing questionnaire for external_id {external_id}",
+                extra={"questionnaire_id": data.get("id")},
+            )
+
+            return data
+
+        except requests.HTTPError as e:
+            if e.response is not None and e.response.status_code == 404:
+                logger.info(f"No existing questionnaire found for external_id {external_id}")
+                return None
+            logger.error(f"HTTP error finding questionnaire: {str(e)}")
+            if e.response is not None:
+                logger.error(f"Response body: {e.response.text}")
+            raise ARRMSAPIError(f"Failed to find questionnaire for {external_id}: {str(e)}")
+        except requests.RequestException as e:
+            logger.error(f"Request error finding questionnaire: {str(e)}")
+            raise ARRMSAPIError(f"Request failed: {str(e)}")
+
+    def update_questionnaire_file(
+        self,
+        questionnaire_id: str,
+        file_path: str,
+        external_metadata: Optional[Dict[str, Any]] = None,
+        **kwargs,
+    ) -> Dict[str, Any]:
+        """
+        Update the source file for an existing questionnaire in ARRMS.
+
+        This replaces the questionnaire file while maintaining the same questionnaire ID,
+        preventing duplicates when re-syncing from Onspring.
+
+        Args:
+            questionnaire_id: ARRMS questionnaire ID to update
+            file_path: Path to new questionnaire file (Excel format)
+            external_metadata: Additional metadata about the source record
+            **kwargs: Additional form fields (requester_name, urgency, etc.)
+
+        Returns:
+            Updated questionnaire response
+
+        Raises:
+            ARRMSAPIError: If API request fails
+        """
+        try:
+            import os
+
+            url = f"{self.base_url}/api/v1/integrations/questionnaires/{questionnaire_id}/file"
+            logger.info(f"Updating questionnaire file for {questionnaire_id} from {file_path}")
+
+            # Prepare multipart form data
+            with open(file_path, "rb") as f:
+                files = {
+                    "file": (
+                        os.path.basename(file_path),
+                        f,
+                        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    )
+                }
+
+                # Form data with external system tracking
+                data = {
+                    "external_metadata": json.dumps(external_metadata or {}),
+                    **kwargs,  # Additional fields like requester_name, urgency, etc.
+                }
+
+                response = self.session.put(url, files=files, data=data, timeout=120)
+                response.raise_for_status()
+
+            result = response.json()
+            logger.info(f"Updated questionnaire file for ARRMS ID {questionnaire_id}")
+
+            return result
+
+        except requests.HTTPError as e:
+            logger.error(f"HTTP error updating questionnaire file: {str(e)}")
+            if e.response is not None:
+                logger.error(f"Response body: {e.response.text}")
+            raise ARRMSAPIError(f"Failed to update questionnaire file: {str(e)}")
+        except requests.RequestException as e:
+            logger.error(f"Request error updating questionnaire file: {str(e)}")
+            raise ARRMSAPIError(f"Request failed: {str(e)}")
+        except IOError as e:
+            logger.error(f"File error: {str(e)}")
+            raise ARRMSAPIError(f"Failed to read questionnaire file: {str(e)}")
