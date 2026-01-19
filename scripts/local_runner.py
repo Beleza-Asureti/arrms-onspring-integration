@@ -267,6 +267,88 @@ class LocalARRMSClient:
                 return ref
         return None
 
+    def find_questionnaire_by_external_id(
+        self, external_id: str, external_source: str = "onspring"
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Find an existing questionnaire in ARRMS by external system ID.
+
+        Returns:
+            Questionnaire data if found, None if not found
+        """
+        url = f"{self.base_url}/api/v1/integrations/questionnaires/find"
+        params = {"external_id": external_id, "external_source": external_source}
+
+        try:
+            response = self.http.get(url, params=params, timeout=30)
+
+            # 404 means not found - return None
+            if response.status_code == 404:
+                logger.info(f"No existing questionnaire found for external_id {external_id}")
+                return None
+
+            response.raise_for_status()
+            data = response.json()
+            logger.info(f"Found existing questionnaire {data.get('id')} for external_id {external_id}")
+            return data
+
+        except requests.HTTPError as e:
+            if e.response is not None and e.response.status_code == 404:
+                logger.info(f"No existing questionnaire found for external_id {external_id}")
+                return None
+            raise
+
+    def update_questionnaire_file(
+        self,
+        questionnaire_id: str,
+        file_path: str,
+        external_metadata: Optional[Dict[str, Any]] = None,
+        **kwargs,
+    ) -> Dict[str, Any]:
+        """
+        Update the source file for an existing questionnaire in ARRMS.
+
+        This replaces the questionnaire file while maintaining the same questionnaire ID.
+        """
+        url = f"{self.base_url}/api/v1/integrations/questionnaires/{questionnaire_id}/file"
+
+        with open(file_path, "rb") as f:
+            files = {
+                "file": (
+                    os.path.basename(file_path),
+                    f,
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                )
+            }
+
+            data = {
+                "external_metadata": json.dumps(external_metadata or {}),
+            }
+
+            # Add optional fields
+            for key, value in kwargs.items():
+                if value is not None:
+                    data[key] = value
+
+            response = self.http.put(url, files=files, data=data, timeout=120)
+            response.raise_for_status()
+
+        return response.json()
+
+    def get_questionnaire_statistics(
+        self, external_id: str, external_source: str = "onspring"
+    ) -> Dict[str, Any]:
+        """
+        Retrieve detailed questionnaire statistics from ARRMS.
+        """
+        url = f"{self.base_url}/api/v1/integrations/questionnaires/{external_id}/statistics"
+        params = {"external_source": external_source}
+
+        response = self.http.get(url, params=params, timeout=30)
+        response.raise_for_status()
+
+        return response.json()
+
 
 def load_env_file(filepath: str):
     """Load environment variables from a file."""
@@ -372,22 +454,47 @@ def run_webhook_flow(mock_client, arrms_client, record_id: int = 12345, app_id: 
 
     logger.info(f"Saved questionnaire to: {temp_file_path}")
 
-    # 6. Upload to ARRMS
+    # 6. Check if questionnaire already exists in ARRMS
     try:
-        result = arrms_client.upload_questionnaire(
-            file_path=temp_file_path,
+        existing_questionnaire = arrms_client.find_questionnaire_by_external_id(
             external_id=str(record_id),
             external_source="onspring",
-            external_metadata=transformed.get("external_metadata", {}),
-            requester_name=transformed.get("requester_name"),
-            urgency=transformed.get("urgency"),
-            assessment_type=transformed.get("assessment_type"),
-            due_date=transformed.get("due_date"),
-            notes=transformed.get("notes") or transformed.get("description"),
         )
 
-        arrms_id = result.get("id")
-        logger.info(f"Successfully uploaded questionnaire to ARRMS: {arrms_id}")
+        if existing_questionnaire:
+            # Update existing questionnaire file
+            arrms_id = existing_questionnaire.get("id")
+            logger.info(f"Found existing questionnaire {arrms_id}, updating file...")
+
+            result = arrms_client.update_questionnaire_file(
+                questionnaire_id=arrms_id,
+                file_path=temp_file_path,
+                external_metadata=transformed.get("external_metadata", {}),
+                requester_name=transformed.get("requester_name"),
+                urgency=transformed.get("urgency"),
+                assessment_type=transformed.get("assessment_type"),
+                due_date=transformed.get("due_date"),
+                notes=transformed.get("notes") or transformed.get("description"),
+            )
+            logger.info(f"Successfully updated questionnaire {arrms_id}")
+        else:
+            # Create new questionnaire
+            logger.info("No existing questionnaire found, creating new one...")
+
+            result = arrms_client.upload_questionnaire(
+                file_path=temp_file_path,
+                external_id=str(record_id),
+                external_source="onspring",
+                external_metadata=transformed.get("external_metadata", {}),
+                requester_name=transformed.get("requester_name"),
+                urgency=transformed.get("urgency"),
+                assessment_type=transformed.get("assessment_type"),
+                due_date=transformed.get("due_date"),
+                notes=transformed.get("notes") or transformed.get("description"),
+            )
+
+            arrms_id = result.get("id")
+            logger.info(f"Successfully created questionnaire {arrms_id}")
 
         # 7. Upload additional files (non-fatal if endpoint doesn't exist)
         additional_files = files[1:]
@@ -539,6 +646,11 @@ Examples:
         action="store_true",
         help="Don't log request/response bodies",
     )
+    parser.add_argument(
+        "--stats",
+        action="store_true",
+        help="Get statistics for a questionnaire by external_id (use with --record-id)",
+    )
 
     args = parser.parse_args()
 
@@ -567,6 +679,18 @@ Examples:
             logger.info("ARRMS health check: PASSED")
         else:
             logger.error("ARRMS health check: FAILED")
+            sys.exit(1)
+
+    elif args.stats:
+        logger.info(f"Fetching statistics for external_id: {args.record_id}")
+        try:
+            stats = arrms_client.get_questionnaire_statistics(
+                external_id=str(args.record_id),
+                external_source="onspring",
+            )
+            logger.info(f"Statistics:\n{json.dumps(stats, indent=2)}")
+        except requests.HTTPError as e:
+            logger.error(f"Failed to get statistics: {e}")
             sys.exit(1)
 
     elif args.webhook:
