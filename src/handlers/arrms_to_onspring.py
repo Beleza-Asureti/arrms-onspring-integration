@@ -366,6 +366,9 @@ def calculate_onspring_status(
     2. "Request in Process" - Has responses but not all approved or no document
     3. "Ready for Validation" - All questions approved AND document uploaded
 
+    NOTE: Returns Onspring list value IDs (UUIDs), not text strings.
+    Hardcoded for demo (App ID 248, Field ID 14906). For multi-tenant, see issue #4.
+
     Args:
         total_questions: Total number of questions
         answered_questions: Number of questions with responses
@@ -373,19 +376,24 @@ def calculate_onspring_status(
         document_url: URL of output document (if available)
 
     Returns:
-        Onspring status string
+        Onspring status list value ID (UUID string)
     """
+    # Onspring "Agentic Status" list value IDs (App ID 248, Field ID 14906)
+    STATUS_NOT_STARTED = "61be3f2e-d333-4983-b503-4b198622a1c2"
+    STATUS_IN_PROCESS = "cdae7799-07e1-472d-b8f6-1a70f50305e8"
+    STATUS_READY = "30733b38-2b9b-43a6-ade5-d7f0b69ba6b2"
+
     has_responses = answered_questions > 0
     all_approved = approved_questions == total_questions
     has_document = document_url is not None
 
     if not has_responses:
-        return "Not Started"
+        return STATUS_NOT_STARTED
 
     if all_approved and has_document:
-        return "Ready for Validation"
+        return STATUS_READY
 
-    return "Request in Process"
+    return STATUS_IN_PROCESS
 
 
 def get_document_url(metadata: Dict[str, Any]) -> Optional[str]:
