@@ -503,7 +503,8 @@ def update_onspring_record(
             }
             logger.info("Using hardcoded field mapping for demo (App ID 248)")
 
-        # Update each field
+        # Build field data dict for single API call
+        field_data = {}
         for field_name, value in field_values.items():
             field_id = field_mapping.get(field_name)
 
@@ -514,20 +515,27 @@ def update_onspring_record(
                 )
                 continue
 
-            # Update field in Onspring
-            onspring_client.update_field_value(
-                app_id=app_id,
-                record_id=record_id,
-                field_id=field_id,
-                value=value,
-            )
-
+            # Add to field data dict (field ID as string key per Onspring API v2 spec)
+            field_data[str(field_id)] = value
             logger.debug(
-                f"Updated field '{field_name}' (ID: {field_id}) with value: {value}",
+                f"Prepared field '{field_name}' (ID: {field_id}) with value: {value}",
                 extra={"field_name": field_name, "field_id": field_id, "value": value},
             )
 
-        logger.info(f"Successfully updated Onspring record {record_id}")
+        # Update all fields in a single API call
+        if field_data:
+            logger.info(
+                f"Updating Onspring record {record_id} with {len(field_data)} fields",
+                extra={"field_count": len(field_data), "field_ids": list(field_data.keys())},
+            )
+            onspring_client.update_record(
+                app_id=app_id,
+                record_id=record_id,
+                field_data=field_data,
+            )
+            logger.info(f"Successfully updated Onspring record {record_id}")
+        else:
+            logger.warning(f"No valid fields to update for record {record_id}")
 
     except json.JSONDecodeError as e:
         raise IntegrationError(f"Invalid ONSPRING_FIELD_MAPPING JSON: {str(e)}")
