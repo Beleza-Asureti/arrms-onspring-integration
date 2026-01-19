@@ -148,7 +148,39 @@ Follow the prompts to configure:
 - Environment (dev/staging/prod)
 - Onspring API URL
 - ARRMS API URL
+- **OnspringDefaultAppId**: The Onspring App ID for your GRC application (required for ARRMS sync)
+- **OnspringFieldMapping**: JSON mapping of field names to field IDs (see Configuration below)
 - Confirm changes and allow SAM to create IAM roles
+
+#### Configuration for ARRMS to Onspring Sync
+
+The `OnspringFieldMapping` parameter maps ARRMS field names to Onspring field IDs. Format as JSON:
+
+```json
+{
+  "Total Assessment Questions": 12345,
+  "Complete Assessment Questions": 12346,
+  "Open Assessment Questions": 12347,
+  "High Confidence Questions": 12348,
+  "Medium-High Confidence": 12349,
+  "Medium-Low Confidence": 12350,
+  "Low Confidence Questions": 12351,
+  "Status": 12352
+}
+```
+
+To find your Onspring field IDs, use the Onspring API or inspect field configurations in the Onspring UI.
+
+### 6. GitHub Actions Deployment
+
+For automated deployment via GitHub Actions, configure the required secrets in your repository:
+
+1. Go to **Settings > Secrets and variables > Actions**
+2. Add the following repository secrets:
+   - `ONSPRING_API_URL` - Your Onspring API base URL
+   - `ARRMS_API_URL` - Your ARRMS API base URL
+
+**Note**: `OnspringDefaultAppId` and `OnspringFieldMapping` are currently hardcoded in `template.yaml` for demo purposes (App ID 248). For multi-tenant production deployments, see [GitHub issue #4](https://github.com/Beleza-Asureti/arrms-onspring-integration/issues/4) for the configuration utility design.
 
 ## Local Development
 
@@ -186,15 +218,34 @@ pytest tests/unit/test_onspring_client.py
 ### Code Quality
 
 ```bash
+# Run all checks (formatting, linting, tests)
+./scripts/check.sh
+
+# Or run individually:
+
 # Format code
-black src/ tests/
+ruff format src/ tests/
+
+# Check formatting without changes
+ruff format --check src/ tests/
 
 # Lint code
-flake8 src/ tests/
-pylint src/
+ruff check src/ tests/
 
-# Type checking
-mypy src/
+# Lint with auto-fix
+ruff check --fix src/ tests/
+```
+
+### Pre-commit Hooks (Optional)
+
+```bash
+# Install pre-commit (one-time)
+pip install pre-commit
+pre-commit install
+
+# Pre-commit will now run automatically on git commit
+# Or run manually on all files:
+pre-commit run --all-files
 ```
 
 ## API Endpoints

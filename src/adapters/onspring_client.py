@@ -260,10 +260,21 @@ class OnspringClient:
             OnspringAPIError: If API request fails
         """
         try:
+            # Onspring API uses specific endpoint format for updates
             url = f"{self.base_url}/Records"
             logger.info(f"Updating record {record_id} in app {app_id}")
 
-            payload = {"appId": app_id, "recordId": record_id, "fields": field_data}
+            # Format fields as object with field IDs as keys (per Onspring API v2 spec)
+            # field_data is already in the correct format: {"field_id": value}
+            # Just ensure field IDs are strings (as required by API)
+            fields = {str(field_id): field_value for field_id, field_value in field_data.items()}
+
+            payload = {"appId": app_id, "recordId": record_id, "fields": fields}
+
+            logger.debug(
+                "Sending Onspring update request",
+                extra={"payload": payload, "url": url},
+            )
 
             response = self.session.put(url, json=payload, timeout=30)
             response.raise_for_status()
@@ -274,7 +285,15 @@ class OnspringClient:
             return data
 
         except requests.HTTPError as e:
-            logger.error(f"HTTP error updating record: {str(e)}")
+            error_detail = ""
+            try:
+                error_detail = response.text
+            except Exception:
+                pass
+            logger.error(
+                f"HTTP error updating record: {str(e)}",
+                extra={"response_body": error_detail, "payload": payload},
+            )
             raise OnspringAPIError(f"Failed to update record {record_id}: {str(e)}")
         except requests.RequestException as e:
             logger.error(f"Request error updating record: {str(e)}")
@@ -432,3 +451,27 @@ class OnspringClient:
 
         logger.info(f"Found {len(files)} total file attachments in record {record_data.get('recordId')}")
         return files
+
+    def update_field_value(self, app_id: int, record_id: int, field_id: int, value: Any) -> Dict[str, Any]:
+        """
+        Update a single field value in an Onspring record.
+
+        Convenience method for updating individual fields without fetching the full record.
+
+        Args:
+            app_id: Onspring application ID
+            record_id: Record ID to update
+            field_id: Field ID to update
+            value: New value for the field
+
+        Returns:
+            Update response from Onspring
+
+        Raises:
+            OnspringAPIError: If API request fails
+        """
+        # Prepare field data in Onspring format (field ID as string key, value directly)
+        field_data = {str(field_id): value}
+
+        # Use existing update_record method
+        return self.update_record(app_id=app_id, record_id=record_id, field_data=field_data)

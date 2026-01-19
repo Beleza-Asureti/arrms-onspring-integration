@@ -1,0 +1,12 @@
+{
+  "resource": "/webhook/arrms",
+  "path": "/webhook/arrms",
+  "httpMethod": "POST",
+  "headers": {
+    "Content-Type": "application/json",
+    "x-api-key": "test-api-key",
+    "X-Webhook-Signature": "sha256=test-signature-replace-in-tests"
+  },
+  "body": "{\"event_type\":\"questionnaire.response_approved\",\"event_id\":\"550e8400-e29b-41d4-a716-446655440000\",\"timestamp\":\"2026-01-18T13:45:30.123456Z\",\"version\":\"1.0\",\"questionnaire_id\":\"0278f3dc-7b60-4b2e-a432-3e4e00a72f56\",\"external_references\":[{\"external_id\":\"onspring-12345\",\"external_source\":\"onspring\"}],\"metadata\":{\"approved_count\":2,\"total_count\":3}}",
+  "isBase64Encoded": false
+}

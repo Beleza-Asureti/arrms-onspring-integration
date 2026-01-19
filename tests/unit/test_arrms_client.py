@@ -223,3 +223,86 @@ def test_upload_document_with_metadata(arrms_client, mock_session):
     source_metadata = json.loads(data["source_metadata"])
     assert source_metadata["onspring_record_id"] == 12345
     assert source_metadata["notes"] == "Test file"
+
+
+def test_find_questionnaire_by_external_id_found(arrms_client, mock_session):
+    """Test finding an existing questionnaire by external ID."""
+    mock_response = Mock()
+    mock_response.status_code = 200
+    mock_response.json.return_value = {
+        "id": "uuid-123",
+        "name": "Existing Questionnaire",
+        "external_references": [
+            {
+                "id": "ref-uuid-456",
+                "external_id": "12345",
+                "external_source": "onspring",
+            }
+        ],
+    }
+    mock_session.get.return_value = mock_response
+
+    result = arrms_client.find_questionnaire_by_external_id(external_id="12345", external_source="onspring")
+
+    assert result is not None
+    assert result["id"] == "uuid-123"
+    assert result["name"] == "Existing Questionnaire"
+
+    mock_session.get.assert_called_once()
+    call_args = mock_session.get.call_args
+
+    # Verify URL and params
+    assert call_args[0][0] == "https://arrms.example.com/api/v1/integrations/questionnaires/find"
+    assert call_args[1]["params"]["external_id"] == "12345"
+    assert call_args[1]["params"]["external_source"] == "onspring"
+
+
+def test_find_questionnaire_by_external_id_not_found(arrms_client, mock_session):
+    """Test finding questionnaire that doesn't exist returns None."""
+    mock_response = Mock()
+    mock_response.status_code = 404
+    mock_session.get.return_value = mock_response
+
+    result = arrms_client.find_questionnaire_by_external_id(external_id="99999", external_source="onspring")
+
+    assert result is None
+    mock_session.get.assert_called_once()
+
+
+def test_update_questionnaire_file(arrms_client, mock_session):
+    """Test updating an existing questionnaire file."""
+    mock_response = Mock()
+    mock_response.json.return_value = {
+        "id": "uuid-123",
+        "name": "Updated Questionnaire",
+        "file_updated": True,
+    }
+    mock_session.put.return_value = mock_response
+
+    # Mock file open
+    test_file_content = b"updated file content"
+    with patch("builtins.open", mock_open(read_data=test_file_content)):
+        result = arrms_client.update_questionnaire_file(
+            questionnaire_id="uuid-123",
+            file_path="/tmp/updated.xlsx",
+            external_metadata={"app_id": 100, "updated": True},
+            requester_name="Jane Doe",
+        )
+
+    assert result["id"] == "uuid-123"
+    assert result["file_updated"] is True
+
+    mock_session.put.assert_called_once()
+    call_args = mock_session.put.call_args
+
+    # Verify URL
+    assert call_args[0][0] == "https://arrms.example.com/api/v1/integrations/questionnaires/uuid-123/file"
+
+    # Verify form data
+    data = call_args[1]["data"]
+    assert data["requester_name"] == "Jane Doe"
+
+    # Verify external_metadata is JSON string
+    metadata = json.loads(data["external_metadata"])
+    assert metadata["app_id"] == 100
+    assert metadata["updated"] is True

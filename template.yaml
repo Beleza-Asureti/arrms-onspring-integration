@@ -59,8 +59,17 @@ Parameters:
 
   OnspringDefaultAppId:
     Type: String
-    Default: ""
-    Description: (Optional) Default Onspring App ID - can be overridden with ?appId= query parameter
+    Default: "248"
+    Description: |
+      Default Onspring App ID for ARRMS sync (can be overridden with ?appId= query parameter).
+      NOTE: Hardcoded for demo. For multi-tenant, see GitHub issue #4 for configuration utility design.
+
+  OnspringFieldMapping:
+    Type: String
+    Default: '{"Total Assessment Questions":14932,"Complete Assessment Questions":14934,"Open Assessment Questions":14933,"High Confidence Questions":14936,"Medium-High Confidence":14937,"Medium-Low Confidence":14938,"Low Confidence Questions":14939,"Status":14906}'
+    Description: |
+      JSON mapping of Onspring field names to field IDs for ARRMS sync.
+      NOTE: Hardcoded for demo (App ID 248). For multi-tenant, see GitHub issue #4.
 
 Globals:
   Function:
@@ -74,6 +83,7 @@ Globals:
         ONSPRING_API_URL: !Ref OnspringApiUrl
         ONSPRING_API_KEY_SECRET: !Ref OnspringApiKeySecretName
         ONSPRING_DEFAULT_APP_ID: !Ref OnspringDefaultAppId
+        ONSPRING_FIELD_MAPPING: !Ref OnspringFieldMapping
         ARRMS_API_URL: !Ref ArrmsApiUrl
         ARRMS_API_KEY_SECRET: !Ref ArrmsApiKeySecretName
         POWERTOOLS_SERVICE_NAME: arrms-onspring-integration
@@ -129,6 +139,16 @@ Resources:
               summary: Trigger sync from Onspring to ARRMS
               x-amazon-apigateway-integration:
                 uri: !Sub arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${OnspringToArrmsFunction.Arn}/invocations
+                passthroughBehavior: when_no_match
+                httpMethod: POST
+                type: aws_proxy
+              security:
+                - ApiKeyAuth: []
+          /webhook/arrms:
+            post:
+              summary: Receive webhook events from ARRMS
+              x-amazon-apigateway-integration:
+                uri: !Sub arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${ArrmsToOnspringFunction.Arn}/invocations
                 passthroughBehavior: when_no_match
                 httpMethod: POST
                 type: aws_proxy
@@ -212,6 +232,33 @@ Resources:
         #     Description: Periodic sync from Onspring to ARRMS
         #     Enabled: false
 
+  ArrmsToOnspringFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub ${AWS::StackName}-arrms-to-onspring
+      Description: Syncs questionnaire data from ARRMS back to Onspring
+      CodeUri: src/
+      Handler: handlers.arrms_to_onspring.lambda_handler
+      Timeout: 120
+      Policies:
+        - SecretsManagerReadWrite
+        - CloudWatchLambdaInsightsExecutionRolePolicy
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                - logs:CreateLogGroup
+                - logs:CreateLogStream
+                - logs:PutLogEvents
+              Resource: !Sub arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/*
+      Events:
+        WebhookApi:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ARRMSIntegrationApi
+            Path: /webhook/arrms
+            Method: POST
+
   HealthCheckFunction:
     Type: AWS::Serverless::Function
     Properties:
@@ -243,6 +290,12 @@ Resources:
       LogGroupName: !Sub /aws/lambda/${OnspringToArrmsFunction}
       RetentionInDays: 30
 
+  ArrmsToOnspringLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/lambda/${ArrmsToOnspringFunction}
+      RetentionInDays: 30
+
   HealthCheckLogGroup:
     Type: AWS::Logs::LogGroup
     Properties:
@@ -268,11 +321,17 @@ Outputs:
     Export:
       Name: !Sub ${AWS::StackName}-OnspringWebhookFunctionArn
 
-  OnspringToArrmsunctionArn:
+  OnspringToArrmsFunctionArn:
     Description: Onspring to ARRMS Lambda Function ARN
     Value: !GetAtt OnspringToArrmsFunction.Arn
     Export:
       Name: !Sub ${AWS::StackName}-OnspringToArrmsFunctionArn
+
+  ArrmsToOnspringFunctionArn:
+    Description: ARRMS to Onspring Lambda Function ARN
+    Value: !GetAtt ArrmsToOnspringFunction.Arn
+    Export:
+      Name: !Sub ${AWS::StackName}-ArrmsToOnspringFunctionArn
 
   HealthCheckFunctionArn:
     Description: Health Check Lambda Function ARN
