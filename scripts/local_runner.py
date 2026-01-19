@@ -15,6 +15,9 @@ Usage:
 
     # Or with a .env file
     python scripts/local_runner.py --env-file .env.local
+
+    # Start webhook listener to receive callbacks from local ARRMS
+    python scripts/local_runner.py --listen --port 8080
 """
 
 import argparse
@@ -23,7 +26,9 @@ import logging
 import os
 import sys
 import tempfile
+import threading
 from datetime import datetime
+from http.server import HTTPServer, BaseHTTPRequestHandler
 from typing import Any, Dict, Optional
 from unittest.mock import patch, MagicMock
 
@@ -578,6 +583,189 @@ def run_batch_sync(mock_client, arrms_client, app_id: int = 100, batch_size: int
     return results
 
 
+class WebhookHandler(BaseHTTPRequestHandler):
+    """
+    HTTP request handler for receiving ARRMS webhook callbacks.
+
+    Handles POST requests to /webhook/arrms and logs the payload.
+    """
+
+    # Class-level callback for processing webhooks
+    webhook_callback = None
+
+    def log_message(self, format, *args):
+        """Override to use our logger instead of stderr."""
+        logger.info(f"[HTTP] {args[0]}")
+
+    def do_GET(self):
+        """Handle GET requests - health check endpoint."""
+        if self.path == "/health":
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(json.dumps({"status": "ok", "listener": "active"}).encode())
+        else:
+            self.send_response(404)
+            self.end_headers()
+
+    def do_POST(self):
+        """Handle POST requests - webhook endpoint."""
+        content_length = int(self.headers.get("Content-Length", 0))
+        body = self.rfile.read(content_length).decode("utf-8")
+
+        logger.info("=" * 80)
+        logger.info(f"WEBHOOK RECEIVED: {self.path}")
+        logger.info("=" * 80)
+        logger.info(f"Headers: {dict(self.headers)}")
+
+        try:
+            payload = json.loads(body) if body else {}
+            logger.info(f"Payload:\n{json.dumps(payload, indent=2)}")
+
+            # Extract key information from ARRMS webhook
+            event_type = payload.get("event_type", "unknown")
+            questionnaire_id = payload.get("questionnaire_id")
+            external_refs = payload.get("external_references", [])
+
+            logger.info("-" * 40)
+            logger.info(f"Event Type: {event_type}")
+            logger.info(f"Questionnaire ID: {questionnaire_id}")
+            if external_refs:
+                for ref in external_refs:
+                    logger.info(f"External Reference: {ref.get('external_source')}:{ref.get('external_id')}")
+
+            # Call the callback if set
+            if WebhookHandler.webhook_callback:
+                try:
+                    WebhookHandler.webhook_callback(payload)
+                except Exception as e:
+                    logger.error(f"Webhook callback error: {e}")
+
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(json.dumps({"status": "received", "event_type": event_type}).encode())
+
+        except json.JSONDecodeError as e:
+            logger.error(f"Invalid JSON payload: {e}")
+            logger.error(f"Raw body: {body[:500]}")
+            self.send_response(400)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(json.dumps({"error": "Invalid JSON"}).encode())
+
+        logger.info("=" * 80 + "\n")
+
+
+def run_webhook_listener(port: int = 8080, callback=None):
+    """
+    Start HTTP server to listen for ARRMS webhooks.
+
+    Args:
+        port: Port to listen on (default: 8080)
+        callback: Optional callback function to process webhooks
+    """
+    WebhookHandler.webhook_callback = callback
+
+    server_address = ("", port)
+    httpd = HTTPServer(server_address, WebhookHandler)
+
+    logger.info("=" * 80)
+    logger.info(f"WEBHOOK LISTENER STARTED")
+    logger.info("=" * 80)
+    logger.info(f"Listening on http://localhost:{port}")
+    logger.info(f"Webhook endpoint: http://localhost:{port}/webhook/arrms")
+    logger.info(f"Health check: http://localhost:{port}/health")
+    logger.info("")
+    logger.info("Configure your local ARRMS to send webhooks to this URL.")
+    logger.info("Press Ctrl+C to stop.")
+    logger.info("=" * 80 + "\n")
+
+    try:
+        httpd.serve_forever()
+    except KeyboardInterrupt:
+        logger.info("\nShutting down webhook listener...")
+        httpd.shutdown()
+
+
+def run_listener_with_sync(port: int, arrms_client, mock_onspring_client=None):
+    """
+    Run webhook listener that also syncs data back to mock Onspring.
+
+    When a webhook is received, fetches statistics from ARRMS and logs
+    what would be synced back to Onspring.
+
+    Args:
+        port: Port to listen on
+        arrms_client: ARRMS client for fetching statistics
+        mock_onspring_client: Optional mock Onspring client
+    """
+
+    def on_webhook(payload):
+        """Process incoming webhook and fetch statistics."""
+        event_type = payload.get("event_type", "")
+        external_refs = payload.get("external_references", [])
+
+        # Find onspring external reference
+        onspring_ref = None
+        for ref in external_refs:
+            if ref.get("external_source") == "onspring":
+                onspring_ref = ref
+                break
+
+        if not onspring_ref:
+            logger.warning("No Onspring external reference found in webhook")
+            return
+
+        external_id = onspring_ref.get("external_id")
+        logger.info(f"\nProcessing webhook for Onspring record: {external_id}")
+
+        # Fetch statistics from ARRMS
+        try:
+            stats = arrms_client.get_questionnaire_statistics(
+                external_id=external_id,
+                external_source="onspring",
+            )
+
+            summary = stats.get("summary", {})
+            logger.info("-" * 40)
+            logger.info("ARRMS Statistics:")
+            logger.info(f"  Total Questions: {summary.get('total_questions', 0)}")
+            logger.info(f"  Answered: {summary.get('answered_questions', 0)}")
+            logger.info(f"  Approved: {summary.get('approved_questions', 0)}")
+            logger.info(f"  Unanswered: {summary.get('unanswered_questions', 0)}")
+
+            confidence = summary.get("confidence_distribution", {})
+            if confidence:
+                logger.info("  Confidence Distribution:")
+                logger.info(f"    Very High (>80%): {confidence.get('very_high', 0)}")
+                logger.info(f"    High (>50%): {confidence.get('high', 0)}")
+                logger.info(f"    Medium (>25%): {confidence.get('medium', 0)}")
+                logger.info(f"    Low (<25%): {confidence.get('low', 0)}")
+
+            # Calculate what status would be set in Onspring
+            total = summary.get("total_questions", 0)
+            approved = summary.get("approved_questions", 0)
+            answered = summary.get("answered_questions", 0)
+            has_document = stats.get("metadata", {}).get("source_document") is not None
+
+            if answered == 0:
+                status = "Not Started"
+            elif approved == total and has_document:
+                status = "Ready for Validation"
+            else:
+                status = "Request in Process"
+
+            logger.info("-" * 40)
+            logger.info(f"Calculated Onspring Status: {status}")
+            logger.info(f"(Would update Onspring record {external_id})")
+
+        except Exception as e:
+            logger.error(f"Failed to fetch statistics: {e}")
+
+    run_webhook_listener(port=port, callback=on_webhook)
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Run ARRMS integration locally with mocked Onspring",
@@ -600,6 +788,12 @@ Examples:
 
     # Run batch sync simulation
     python scripts/local_runner.py --batch --batch-size 5
+
+    # Start webhook listener to receive ARRMS callbacks
+    python scripts/local_runner.py --listen --port 8080
+
+    # Start listener with auto-sync (fetches stats on webhook)
+    python scripts/local_runner.py --listen --port 8080 --auto-sync
         """,
     )
 
@@ -651,13 +845,35 @@ Examples:
         action="store_true",
         help="Get statistics for a questionnaire by external_id (use with --record-id)",
     )
+    parser.add_argument(
+        "--listen",
+        action="store_true",
+        help="Start HTTP server to listen for ARRMS webhook callbacks",
+    )
+    parser.add_argument(
+        "--port",
+        type=int,
+        default=8080,
+        help="Port for webhook listener (default: 8080)",
+    )
+    parser.add_argument(
+        "--auto-sync",
+        action="store_true",
+        help="When listening, automatically fetch ARRMS statistics on webhook receipt",
+    )
 
     args = parser.parse_args()
 
     # Load environment
     load_env_file(args.env_file)
 
-    # Validate required env vars
+    # Listener-only mode doesn't require ARRMS credentials (unless auto-sync)
+    if args.listen and not args.auto_sync:
+        logger.info("Starting webhook listener (no ARRMS connection required)")
+        run_webhook_listener(port=args.port)
+        return
+
+    # Validate required env vars for modes that need ARRMS
     if not os.environ.get("ARRMS_API_URL"):
         logger.error("ARRMS_API_URL not set. Set it via environment or --env-file")
         sys.exit(1)
@@ -692,6 +908,10 @@ Examples:
         except requests.HTTPError as e:
             logger.error(f"Failed to get statistics: {e}")
             sys.exit(1)
+
+    elif args.listen:
+        # auto_sync mode (plain listen handled above before client init)
+        run_listener_with_sync(port=args.port, arrms_client=arrms_client, mock_onspring_client=mock_client)
 
     elif args.webhook:
         run_webhook_flow(mock_client, arrms_client, record_id=args.record_id, app_id=args.app_id)
