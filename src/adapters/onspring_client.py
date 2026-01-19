@@ -280,7 +280,15 @@ class OnspringClient:
             return data
 
         except requests.HTTPError as e:
-            logger.error(f"HTTP error updating record: {str(e)}")
+            error_detail = ""
+            try:
+                error_detail = response.text
+            except Exception:
+                pass
+            logger.error(
+                f"HTTP error updating record: {str(e)}",
+                extra={"response_body": error_detail, "payload": payload},
+            )
             raise OnspringAPIError(f"Failed to update record {record_id}: {str(e)}")
         except requests.RequestException as e:
             logger.error(f"Request error updating record: {str(e)}")
