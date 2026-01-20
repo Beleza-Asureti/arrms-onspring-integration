@@ -2,6 +2,8 @@
 Unit tests for Onspring to ARRMS transformation logic
 """
 
+from unittest.mock import Mock
+
 from handlers.onspring_to_arrms import transform_record
 
 
@@ -10,22 +12,23 @@ def test_transform_record_with_all_fields():
     onspring_record = {
         "recordId": 12345,
         "appId": 100,
-        "fields": {
-            "Title": {"value": "SOC 2 Assessment", "fieldId": 101},
-            "Client": {"value": "Integrity Risk", "fieldId": 102},
-            "DueDate": {"value": "2025-03-31", "fieldId": 103},
-            "Status": {"value": "New", "fieldId": 104},
-            "Description": {"value": "Annual compliance assessment", "fieldId": 105},
-        },
+        "fieldData": [
+            {"fieldId": 14872, "type": "Date", "value": "2025-03-31T00:00:00Z"},
+            {"fieldId": 14888, "type": "Text", "value": "Annual compliance assessment"},
+            {"fieldId": 14947, "type": "Integer", "value": 1},
+        ],
     }
 
-    result = transform_record(onspring_record)
+    # Mock OnspringClient
+    mock_client = Mock()
+    mock_client.resolve_reference_field.return_value = "Test Company"
+
+    result = transform_record(onspring_record, mock_client)
 
     # Verify core ARRMS fields
-    assert result["title"] == "SOC 2 Assessment"
-    assert result["client_name"] == "Integrity Risk"
-    assert result["due_date"] == "2025-03-31"
-    assert result["description"] == "Annual compliance assessment"
+    assert result["due_date"] == "2025-03-31T00:00:00Z"
+    assert result["notes"] == "Annual compliance assessment"
+    assert result["requester_name"] == "Test Company"
 
     # Verify external system tracking
     assert result["external_id"] == "12345"
@@ -34,18 +37,15 @@ def test_transform_record_with_all_fields():
     # Verify external metadata
     metadata = result["external_metadata"]
     assert metadata["app_id"] == 100
-    assert metadata["onspring_status"] == "New"
     assert metadata["onspring_url"] == "https://app.onspring.com/record/12345"
     assert "synced_at" in metadata
     assert metadata["sync_type"] == "webhook"
 
     # Verify field IDs are captured
     field_ids = metadata["field_ids"]
-    assert field_ids["title"] == 101
-    assert field_ids["client"] == 102
-    assert field_ids["due_date"] == 103
-    assert field_ids["status"] == 104
-    assert field_ids["description"] == 105
+    assert field_ids["due_date"] == 14872
+    assert field_ids["notes"] == 14888
+    assert field_ids["requester_name"] == 14947
 
 
 def test_transform_record_with_missing_optional_fields():
@@ -53,28 +53,27 @@ def test_transform_record_with_missing_optional_fields():
     onspring_record = {
         "recordId": 67890,
         "appId": 100,
-        "fields": {
-            "Title": {"value": "Minimal Record", "fieldId": 101},
-            # No Client, DueDate, Status, or Description
-        },
+        "fieldData": [],  # No fields
     }
 
-    result = transform_record(onspring_record)
+    # Mock OnspringClient
+    mock_client = Mock()
 
-    # Verify required fields
-    assert result["title"] == "Minimal Record"
+    result = transform_record(onspring_record, mock_client)
+
+    # Verify required fields with defaults
+    assert result["title"] == "Untitled Questionnaire"
     assert result["external_id"] == "67890"
     assert result["external_source"] == "onspring"
 
-    # Verify optional fields are None or have defaults
-    assert result["client_name"] is None
+    # Verify optional fields are None
     assert result["due_date"] is None
-    assert result["description"] is None
+    assert result["notes"] is None
+    assert result["requester_name"] is None
 
     # Verify external metadata
     metadata = result["external_metadata"]
     assert metadata["app_id"] == 100
-    assert metadata["onspring_status"] is None
 
 
 def test_transform_record_with_no_title():
@@ -82,17 +81,16 @@ def test_transform_record_with_no_title():
     onspring_record = {
         "recordId": 11111,
         "appId": 100,
-        "fields": {
-            # No Title field
-            "Client": {"value": "Test Client", "fieldId": 102},
-        },
+        "fieldData": [],  # No fields, so no title
     }
 
-    result = transform_record(onspring_record)
+    # Mock OnspringClient
+    mock_client = Mock()
+
+    result = transform_record(onspring_record, mock_client)
 
     # Should use default title
     assert result["title"] == "Untitled Questionnaire"
-    assert result["client_name"] == "Test Client"
 
 
 def test_transform_record_preserves_field_ids():
@@ -100,24 +98,23 @@ def test_transform_record_preserves_field_ids():
     onspring_record = {
         "recordId": 99999,
         "appId": 200,
-        "fields": {
-            "Title": {"value": "Test", "fieldId": 501},
-            "Client": {"value": "ABC Corp", "fieldId": 502},
-        },
+        "fieldData": [
+            {"fieldId": 14872, "type": "Date", "value": "2025-12-31T00:00:00Z"},
+            {"fieldId": 14888, "type": "Text", "value": "Test notes"},
+        ],
     }
 
-    result = transform_record(onspring_record)
+    # Mock OnspringClient
+    mock_client = Mock()
+
+    result = transform_record(onspring_record, mock_client)
 
     field_ids = result["external_metadata"]["field_ids"]
 
-    # Verify all field IDs are captured
-    assert field_ids["title"] == 501
-    assert field_ids["client"] == 502
-
-    # Missing fields should have None
-    assert field_ids["due_date"] is None
-    assert field_ids["status"] is None
-    assert field_ids["description"] is None
+    # Verify hardcoded field IDs are in metadata
+    assert field_ids["due_date"] == 14872
+    assert field_ids["notes"] == 14888
+    assert field_ids["requester_name"] == 14947
 
 
 def test_transform_record_creates_onspring_url():
@@ -125,23 +122,76 @@ def test_transform_record_creates_onspring_url():
     onspring_record = {
         "recordId": 54321,
         "appId": 100,
-        "fields": {"Title": {"value": "Test", "fieldId": 101}},
+        "fieldData": [],
     }
 
-    result = transform_record(onspring_record)
+    # Mock OnspringClient
+    mock_client = Mock()
+
+    result = transform_record(onspring_record, mock_client)
 
     assert result["external_metadata"]["onspring_url"] == "https://app.onspring.com/record/54321"
 
 
 def test_transform_record_with_empty_fields():
-    """Test transformation when fields dictionary is empty."""
-    onspring_record = {"recordId": 11111, "appId": 100, "fields": {}}
+    """Test transformation when fieldData array is empty."""
+    onspring_record = {"recordId": 11111, "appId": 100, "fieldData": []}
 
-    result = transform_record(onspring_record)
+    # Mock OnspringClient
+    mock_client = Mock()
+
+    result = transform_record(onspring_record, mock_client)
 
     # Should use defaults
     assert result["title"] == "Untitled Questionnaire"
-    assert result["client_name"] is None
     assert result["due_date"] is None
-    assert result["description"] is None
+    assert result["notes"] is None
+    assert result["requester_name"] is None
     assert result["external_id"] == "11111"
+
+
+def test_transform_record_resolves_company_reference():
+    """Test that company reference field is resolved correctly."""
+    onspring_record = {
+        "recordId": 123,
+        "appId": 248,
+        "fieldData": [
+            {"fieldId": 14947, "type": "Integer", "value": 5},  # Company reference
+        ],
+    }
+
+    # Mock OnspringClient
+    mock_client = Mock()
+    mock_client.resolve_reference_field.return_value = "Acme Corporation"
+
+    result = transform_record(onspring_record, mock_client)
+
+    # Verify reference was resolved
+    assert result["requester_name"] == "Acme Corporation"
+
+    # Verify the resolver was called with correct parameters
+    mock_client.resolve_reference_field.assert_called_once_with(
+        referenced_app_id=249,
+        referenced_record_id=5,
+        field_id=14949,
+    )
+
+
+def test_transform_record_handles_failed_company_resolution():
+    """Test that failed company resolution doesn't break the transform."""
+    onspring_record = {
+        "recordId": 123,
+        "appId": 248,
+        "fieldData": [
+            {"fieldId": 14947, "type": "Integer", "value": 999},  # Invalid company reference
+        ],
+    }
+
+    # Mock OnspringClient to raise an exception
+    mock_client = Mock()
+    mock_client.resolve_reference_field.side_effect = Exception("Record not found")
+
+    result = transform_record(onspring_record, mock_client)
+
+    # Should return None for requester_name when resolution fails
+    assert result["requester_name"] is None
