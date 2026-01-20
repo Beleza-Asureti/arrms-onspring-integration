@@ -333,11 +333,15 @@ def calculate_onspring_fields(arrms_stats: Dict[str, Any]) -> Dict[str, Any]:
 
     # Map to Onspring field names
     # NOTE: These field names should match Onspring app configuration
+    total_questions = summary.get("total_questions", 0)
+    complete_questions = summary.get("approved_questions", 0)
+    open_questions = total_questions - complete_questions
+
     field_values = {
         # Question counts
-        "Total Assessment Questions": summary.get("total_questions", 0),
-        "Complete Assessment Questions": summary.get("approved_questions", 0),
-        "Open Assessment Questions": summary.get("unanswered_questions", 0),
+        "Total Assessment Questions": total_questions,
+        "Complete Assessment Questions": complete_questions,
+        "Open Assessment Questions": open_questions,  # Calculated as Total - Complete
         # Confidence distribution
         # Map ARRMS confidence levels to Onspring fields
         # Onspring fields expect: >80%, >50-<80%, >25-<50%, <25%
