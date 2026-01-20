@@ -376,23 +376,56 @@ def load_env_file(filepath: str):
                     logger.debug(f"  {key}={value}")
 
 
-def transform_record(onspring_record: Dict[str, Any]) -> Dict[str, Any]:
+def transform_record(onspring_record: Dict[str, Any], onspring_client=None) -> Dict[str, Any]:
     """
     Transform Onspring questionnaire record to ARRMS format.
 
     This is a standalone copy of the transform logic to avoid AWS Lambda Powertools dependency.
-    """
-    fields = onspring_record.get("fields", {})
+    Updated to match production handler with fieldData array format and new field mappings.
 
+    Args:
+        onspring_record: Raw record from Onspring
+        onspring_client: Optional Onspring client for resolving reference fields
+    """
+    field_data = onspring_record.get("fieldData", [])
+    fields = onspring_record.get("fields", {})  # Legacy fallback
+
+    # Helper to extract field value by field ID (new format)
+    def get_field_value_by_id(field_id: int, default=None):
+        for field in field_data:
+            if field.get("fieldId") == field_id:
+                return field.get("value", default)
+        return default
+
+    # Helper to extract field value by name (legacy format fallback)
     def get_field_value(field_name: str, default=None):
-        field_data = fields.get(field_name, {})
-        return field_data.get("value", default)
+        field_info = fields.get(field_name, {})
+        return field_info.get("value", default)
+
+    # Resolve External Requestor Company Name (reference field)
+    # Field 14947 contains recordId pointing to app 249
+    # Field 14949 in app 249 contains the company name string
+    requester_name = None
+    company_record_id = get_field_value_by_id(14947)
+    if company_record_id and onspring_client:
+        try:
+            requester_name = onspring_client.resolve_reference_field(
+                referenced_app_id=249,
+                referenced_record_id=int(company_record_id),
+                field_id=14949,
+            )
+            logger.debug(f"Resolved company name: {requester_name}")
+        except Exception as e:
+            logger.warning(f"Failed to resolve company name for record {company_record_id}: {str(e)}")
 
     transformed = {
         "title": get_field_value("Title", "Untitled Questionnaire"),
         "client_name": get_field_value("Client"),
         "description": get_field_value("Description"),
-        "due_date": get_field_value("DueDate"),
+        # New field mappings matching production
+        "due_date": get_field_value_by_id(14872),  # Field 14872: Request Due Back to External Requestor
+        "notes": get_field_value_by_id(14888),  # Field 14888: Scope Summary -> Questionnaire.notes
+        "requester_name": requester_name,
         "external_id": str(onspring_record.get("recordId")),
         "external_source": "onspring",
         "external_metadata": {
@@ -400,11 +433,14 @@ def transform_record(onspring_record: Dict[str, Any]) -> Dict[str, Any]:
             "onspring_status": get_field_value("Status"),
             "onspring_url": f"https://app.onspring.com/record/{onspring_record.get('recordId')}",
             "field_ids": {
-                "title": fields.get("Title", {}).get("fieldId"),
-                "client": fields.get("Client", {}).get("fieldId"),
-                "due_date": fields.get("DueDate", {}).get("fieldId"),
-                "status": fields.get("Status", {}).get("fieldId"),
-                "description": fields.get("Description", {}).get("fieldId"),
+                "title": 101,
+                "client": 102,
+                "due_date": 14872,
+                "status": 104,
+                "description": 105,
+                "scope_summary": 14888,
+                "company_reference": 14947,
+                "questionnaire_link": 15083,
             },
             "synced_at": datetime.utcnow().isoformat(),
             "sync_type": "local_test",
@@ -427,8 +463,8 @@ def run_webhook_flow(mock_client, arrms_client, record_id: int = 12345, app_id: 
     record_data = mock_client.get_record(app_id=app_id, record_id=record_id)
     logger.info(f"Fetched record from Onspring: {record_data.get('recordId')}")
 
-    # 2. Transform record
-    transformed = transform_record(record_data)
+    # 2. Transform record (pass mock_client for reference field resolution)
+    transformed = transform_record(record_data, onspring_client=mock_client)
     logger.info(f"Transformed record: {json.dumps(transformed, indent=2, default=str)}")
 
     # 3. Get files from record

@@ -11,10 +11,18 @@ from typing import Any, Dict, List, Optional
 
 
 # Sample mock records that simulate Onspring data
+# Mock reference data for External Requestor Company Name (App 249)
+MOCK_COMPANIES = {
+    501: {"name": "Acme Corporation", "field_14949": "Acme Corporation"},
+    502: {"name": "Healthcare Inc", "field_14949": "Healthcare Inc"},
+    503: {"name": "TechStart LLC", "field_14949": "TechStart LLC"},
+}
+
 MOCK_RECORDS = [
     {
         "recordId": 12345,
         "appId": 100,
+        # Legacy format (kept for backward compatibility)
         "fields": {
             "Title": {"value": "SOC 2 Type II Assessment", "fieldId": 101},
             "Client": {"value": "Acme Corporation", "fieldId": 102},
@@ -22,7 +30,18 @@ MOCK_RECORDS = [
             "Status": {"value": "New", "fieldId": 104},
             "Description": {"value": "Annual SOC 2 Type II assessment for cloud services", "fieldId": 105},
         },
+        # New format matching production Onspring API
         "fieldData": [
+            {"type": "String", "fieldId": 101, "value": "SOC 2 Type II Assessment"},
+            {"type": "String", "fieldId": 102, "value": "Acme Corporation"},
+            {"type": "Date", "fieldId": 103, "value": "2026-03-31"},
+            {"type": "String", "fieldId": 104, "value": "New"},
+            {"type": "String", "fieldId": 105, "value": "Annual SOC 2 Type II assessment for cloud services"},
+            # New fields matching production field IDs
+            {"type": "Date", "fieldId": 14872, "value": "2026-03-31"},  # Request Due Back to External Requestor
+            {"type": "String", "fieldId": 14888, "value": "SOC 2 Type II scope: Cloud infrastructure and security controls"},  # Scope Summary
+            {"type": "Integer", "fieldId": 14947, "value": 501},  # External Requestor Company Name (reference to app 249)
+            {"type": "String", "fieldId": 15083, "value": None},  # Questionnaire Link (written back by integration)
             {
                 "type": "AttachmentList",
                 "fieldId": 200,
@@ -42,12 +61,13 @@ MOCK_RECORDS = [
                         "notes": "Supporting documentation",
                     },
                 ],
-            }
+            },
         ],
     },
     {
         "recordId": 12346,
         "appId": 100,
+        # Legacy format (kept for backward compatibility)
         "fields": {
             "Title": {"value": "HIPAA Security Assessment", "fieldId": 101},
             "Client": {"value": "Healthcare Inc", "fieldId": 102},
@@ -55,7 +75,18 @@ MOCK_RECORDS = [
             "Status": {"value": "In Progress", "fieldId": 104},
             "Description": {"value": "HIPAA security risk assessment", "fieldId": 105},
         },
+        # New format matching production Onspring API
         "fieldData": [
+            {"type": "String", "fieldId": 101, "value": "HIPAA Security Assessment"},
+            {"type": "String", "fieldId": 102, "value": "Healthcare Inc"},
+            {"type": "Date", "fieldId": 103, "value": "2026-04-15"},
+            {"type": "String", "fieldId": 104, "value": "In Progress"},
+            {"type": "String", "fieldId": 105, "value": "HIPAA security risk assessment"},
+            # New fields matching production field IDs
+            {"type": "Date", "fieldId": 14872, "value": "2026-04-15"},  # Request Due Back to External Requestor
+            {"type": "String", "fieldId": 14888, "value": "HIPAA security risk assessment for patient data systems"},  # Scope Summary
+            {"type": "Integer", "fieldId": 14947, "value": 502},  # External Requestor Company Name (reference to app 249)
+            {"type": "String", "fieldId": 15083, "value": None},  # Questionnaire Link (written back by integration)
             {
                 "type": "AttachmentList",
                 "fieldId": 200,
@@ -68,7 +99,7 @@ MOCK_RECORDS = [
                         "notes": "HIPAA questionnaire",
                     },
                 ],
-            }
+            },
         ],
     },
 ]
@@ -273,6 +304,63 @@ class MockOnspringClient:
             "contentType": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             "fileSize": 15000,
         }
+
+    def resolve_reference_field(
+        self, referenced_app_id: int, referenced_record_id: int, field_id: int
+    ) -> Optional[str]:
+        """
+        Resolve a reference field value from another app.
+
+        Used to get the company name from the External Requestor Company Name field.
+
+        Args:
+            referenced_app_id: App ID of the referenced record (e.g., 249 for companies)
+            referenced_record_id: Record ID in the referenced app
+            field_id: Field ID to retrieve from the referenced record
+
+        Returns:
+            Field value as string, or None if not found
+        """
+        print(f"[MockOnspringClient] Resolving reference: app={referenced_app_id}, record={referenced_record_id}, field={field_id}")
+
+        # Look up in mock companies data
+        if referenced_app_id == 249 and referenced_record_id in MOCK_COMPANIES:
+            company = MOCK_COMPANIES[referenced_record_id]
+            value = company.get(f"field_{field_id}") or company.get("name")
+            print(f"[MockOnspringClient] Resolved company name: {value}")
+            return value
+
+        print(f"[MockOnspringClient] Reference not found, returning None")
+        return None
+
+    def update_field_value(
+        self, app_id: int, record_id: int, field_id: int, value: Any
+    ) -> Dict[str, Any]:
+        """
+        Update a single field value on a record.
+
+        Args:
+            app_id: Application ID
+            record_id: Record ID to update
+            field_id: Field ID to update
+            value: New value for the field
+
+        Returns:
+            Update response
+        """
+        print(f"[MockOnspringClient] Updating field {field_id} on record {record_id} in app {app_id}")
+        print(f"[MockOnspringClient] New value: {value}")
+
+        # Find and update the record in mock data (for visibility in local testing)
+        for record in self.records:
+            if record["recordId"] == record_id:
+                for field in record.get("fieldData", []):
+                    if field.get("fieldId") == field_id:
+                        field["value"] = value
+                        print(f"[MockOnspringClient] Updated field {field_id} in mock record")
+                        break
+
+        return {"id": record_id, "warnings": []}
 
 
 def create_mock_webhook_payload(record_id: int = 12345, app_id: int = 100) -> Dict[str, Any]:
