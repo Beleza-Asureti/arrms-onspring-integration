@@ -68,8 +68,10 @@ Parameters:
     Type: String
     Default: '{"Total Assessment Questions":14932,"Complete Assessment Questions":14934,"Open Assessment Questions":14933,"High Confidence Questions":14936,"Medium-High Confidence":14937,"Medium-Low Confidence":14938,"Low Confidence Questions":14939,"Status":14906}'
     Description: |
-      JSON mapping of Onspring field names to field IDs for ARRMS sync.
+      JSON mapping of Onspring field names to field IDs for ARRMS-to-Onspring sync.
       NOTE: Hardcoded for demo (App ID 248). For multi-tenant, see GitHub issue #4.
+      Additional hardcoded field IDs (Onspring-to-ARRMS sync):
+        - Field 15083: Questionnaire Link (set when questionnaire created in ARRMS)
 
 Globals:
   Function:
