@@ -96,6 +96,17 @@ def lambda_handler(event: Dict[str, Any], context: LambdaContext) -> Dict[str, A
         transformed_data = transform_record(record_data, onspring_client)
         onspring_record_id = str(record_id)
 
+        # Log transformed data for debugging
+        logger.info(
+            "Transformed Onspring record data",
+            extra={
+                "record_id": onspring_record_id,
+                "due_date": transformed_data.get("due_date"),
+                "requester_name": transformed_data.get("requester_name"),
+                "title": transformed_data.get("title"),
+            },
+        )
+
         # Get all files from Onspring attachments field
         files = onspring_client.get_record_files(record_data)
 
