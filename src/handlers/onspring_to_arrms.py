@@ -427,7 +427,9 @@ def transform_record(onspring_record: Dict[str, Any], onspring_client: "Onspring
         "title": get_field_value("Title", "Untitled Questionnaire"),
         "client_name": get_field_value("Client"),
         "description": get_field_value("Description"),
-        "due_date": get_field_value_by_id(14872),  # Field 14872: Request Due Back to External Requestor -> Questionnaire.due_date
+        "due_date": get_field_value_by_id(
+            14872
+        ),  # Field 14872: Request Due Back to External Requestor -> Questionnaire.due_date
         "requester_name": requester_name,
         # External system tracking
         "external_id": str(onspring_record.get("recordId")),
