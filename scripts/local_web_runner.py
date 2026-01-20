@@ -216,6 +216,8 @@ class WebRequestHandler(BaseHTTPRequestHandler):
                 self.handle_send(payload)
             elif path == "/api/stats":
                 self.handle_stats(payload)
+            elif path == "/api/apikey":
+                self.handle_apikey_update(payload)
             elif path == "/webhook/arrms":
                 self.handle_webhook(payload)
             else:
@@ -242,11 +244,22 @@ class WebRequestHandler(BaseHTTPRequestHandler):
         try:
             arrms_url = os.environ.get("ARRMS_API_URL", "not configured")
             mock_client = WebRequestHandler.mock_client
+            arrms_client = WebRequestHandler.arrms_client
+
+            # Get masked API key (last 4 chars)
+            api_key_masked = None
+            if arrms_client and arrms_client.api_key:
+                key = arrms_client.api_key
+                if len(key) > 4:
+                    api_key_masked = "****" + key[-4:]
+                else:
+                    api_key_masked = "****"
 
             status = {
                 "arrms_connected": arrms_status_cache["connected"],
                 "arrms_url": arrms_url,
                 "arrms_error": arrms_status_cache["error"],
+                "arrms_api_key_masked": api_key_masked,
                 "mock_records": len(mock_client.records) if mock_client else 0,
             }
             self.send_json(status)
@@ -422,6 +435,38 @@ class WebRequestHandler(BaseHTTPRequestHandler):
         thread.start()
 
         self.send_json({"status": "started", "record_id": record_id})
+
+    def handle_apikey_update(self, payload: Dict):
+        """Handle API key update request."""
+        new_key = payload.get("api_key", "").strip()
+
+        if not new_key:
+            self.send_json({"status": "error", "error": "No API key provided"}, 400)
+            return
+
+        arrms_client = WebRequestHandler.arrms_client
+        if not arrms_client:
+            self.send_json({"status": "error", "error": "ARRMS client not initialized"}, 500)
+            return
+
+        # Update the API key
+        old_key_masked = "****" + arrms_client.api_key[-4:] if len(arrms_client.api_key) > 4 else "****"
+        new_key_masked = "****" + new_key[-4:] if len(new_key) > 4 else "****"
+
+        arrms_client.api_key = new_key
+        arrms_client.session.headers.update({"X-API-Key": new_key})
+
+        log_buffer.info(f"API key updated: {old_key_masked} -> {new_key_masked}")
+
+        # Trigger immediate health check
+        arrms_status_cache["error"] = "Checking..."
+        arrms_status_cache["connected"] = False
+
+        self.send_json({
+            "status": "ok",
+            "message": f"API key updated to {new_key_masked}",
+            "api_key_masked": new_key_masked
+        })
 
     def handle_webhook(self, payload: Dict):
         """Handle incoming ARRMS webhook."""

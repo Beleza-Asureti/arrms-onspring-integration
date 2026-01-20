@@ -336,6 +336,21 @@
             </div>
         </div>
 
+        <div class="controls" style="margin-top: -10px;">
+            <div class="input-group" style="flex: 1; max-width: 350px;">
+                <label>ARRMS API Key <span id="currentKeyHint" style="color: #666; font-weight: normal;"></span></label>
+                <div style="display: flex; gap: 8px;">
+                    <input type="password" id="apiKeyInput" placeholder="Enter new API key..." style="flex: 1; width: auto;" />
+                    <button class="btn btn-secondary" id="apiKeyBtn" onclick="updateApiKey()">
+                        Update Key
+                    </button>
+                </div>
+            </div>
+            <div class="input-group" style="align-self: flex-end;">
+                <span style="font-size: 0.75rem; color: #666;">Session only - resets on server restart</span>
+            </div>
+        </div>
+
         <div class="log-container">
             <div class="log-header">
                 <h2>Log Output</h2>
@@ -391,6 +406,12 @@
                     const errMsg = data.arrms_error || 'Not connected';
                     text.textContent = `ARRMS: Down`;
                     text.title = errMsg;
+                }
+
+                // Update current key hint
+                const keyHint = document.getElementById('currentKeyHint');
+                if (data.arrms_api_key_masked) {
+                    keyHint.textContent = `(Current: ${data.arrms_api_key_masked})`;
                 }
             } catch (err) {
                 dot.className = 'status-dot error';
@@ -582,6 +603,44 @@
             } finally {
                 btn.disabled = false;
                 btn.textContent = 'Get Stats';
+            }
+        }
+
+        async function updateApiKey() {
+            const btn = document.getElementById('apiKeyBtn');
+            const input = document.getElementById('apiKeyInput');
+            const apiKey = input.value.trim();
+
+            if (!apiKey) {
+                alert('Please enter an API key');
+                return;
+            }
+
+            btn.disabled = true;
+            btn.textContent = 'Updating...';
+
+            try {
+                const res = await fetch('/api/apikey', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ api_key: apiKey })
+                });
+
+                const data = await res.json();
+
+                if (res.ok) {
+                    input.value = '';
+                    // Trigger immediate status check
+                    setTimeout(checkArrmsStatus, 500);
+                } else {
+                    alert(data.error || 'Failed to update API key');
+                }
+            } catch (err) {
+                console.error('API key update failed:', err);
+                alert('Failed to update API key: ' + err.message);
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Update Key';
             }
         }
 
