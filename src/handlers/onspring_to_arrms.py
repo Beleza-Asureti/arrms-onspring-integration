@@ -295,9 +295,7 @@ def sync_records_to_arrms(
                 try:
                     # Construct questionnaire link URL
                     arrms_base_url = os.environ.get("ARRMS_API_URL", "https://demo.preview.asureti.com")
-                    questionnaire_link = (
-                        f"{arrms_base_url}/questionnaire-answers?questionnaire={arrms_questionnaire_id}"
-                    )
+                    questionnaire_link = f"{arrms_base_url}/questionnaire-answers?questionnaire={arrms_questionnaire_id}"
 
                     # Update Onspring field 15083 (Questionnaire Link)
                     onspring_client.update_field_value(
