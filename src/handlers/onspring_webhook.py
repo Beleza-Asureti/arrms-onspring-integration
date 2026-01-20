@@ -93,7 +93,7 @@ def lambda_handler(event: Dict[str, Any], context: LambdaContext) -> Dict[str, A
         # Transform data to extract metadata
         from handlers.onspring_to_arrms import transform_record
 
-        transformed_data = transform_record(record_data)
+        transformed_data = transform_record(record_data, onspring_client)
         onspring_record_id = str(record_id)
 
         # Get all files from Onspring attachments field
@@ -186,6 +186,33 @@ def lambda_handler(event: Dict[str, Any], context: LambdaContext) -> Dict[str, A
                     )
                 else:
                     logger.warning(f"External reference not found in response for {onspring_record_id}")
+
+            # Update Onspring record with questionnaire link (INT-180)
+            try:
+                # Construct questionnaire link URL
+                arrms_base_url = os.environ.get("ARRMS_API_URL", "https://demo.preview.asureti.com")
+                questionnaire_link = f"{arrms_base_url}/questionnaire-answers?questionnaire={arrms_questionnaire_id}"
+
+                # Update Onspring field 15083 (Questionnaire Link)
+                onspring_client.update_field_value(
+                    app_id=app_id,
+                    record_id=onspring_record_id,
+                    field_id=15083,
+                    value=questionnaire_link,
+                )
+
+                logger.info(
+                    f"Updated Onspring record {onspring_record_id} with questionnaire link",
+                    extra={"questionnaire_link": questionnaire_link},
+                )
+
+            except Exception as link_error:
+                # Log but don't fail the sync - questionnaire was created successfully
+                logger.warning(
+                    f"Failed to update questionnaire link in Onspring for record {onspring_record_id}",
+                    extra={"error": str(link_error)},
+                )
+
         finally:
             # Clean up temp file
             os.unlink(temp_file_path)
