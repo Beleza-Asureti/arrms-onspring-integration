@@ -437,11 +437,10 @@ def transform_record(onspring_record: Dict[str, Any], onspring_client: "Onspring
             "onspring_status": get_field_value("Status"),
             "onspring_url": f"https://app.onspring.com/record/{onspring_record.get('recordId')}",
             "field_ids": {
-                "title": fields.get("Title", {}).get("fieldId"),
-                "client": fields.get("Client", {}).get("fieldId"),
+                # Hardcoded field IDs for demo (App ID 248)
+                # For multi-tenant, see GitHub issue #4
+                "requester_name": 14947,  # External Requestor Company Name (references app 249, field 14949)
                 "due_date": 14872,  # Request Due Back to External Requestor
-                "status": fields.get("Status", {}).get("fieldId"),
-                "description": fields.get("Description", {}).get("fieldId"),
             },
             "synced_at": datetime.utcnow().isoformat(),
             "sync_type": "webhook",  # or "scheduled"
