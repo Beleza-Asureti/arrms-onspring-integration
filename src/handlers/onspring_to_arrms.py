@@ -396,6 +396,7 @@ def transform_record(onspring_record: Dict[str, Any]) -> Dict[str, Any]:
         "client_name": get_field_value("Client"),
         "description": get_field_value("Description"),
         "due_date": get_field_value("DueDate"),  # Assumes ISO format
+        "notes": get_field_value("Scope Summary"),
         # External system tracking
         "external_id": str(onspring_record.get("recordId")),
         "external_source": "onspring",
@@ -407,6 +408,7 @@ def transform_record(onspring_record: Dict[str, Any]) -> Dict[str, Any]:
                 "title": fields.get("Title", {}).get("fieldId"),
                 "client": fields.get("Client", {}).get("fieldId"),
                 "due_date": fields.get("DueDate", {}).get("fieldId"),
+                "notes": fields.get("Scope Summary", {}).get("fieldId"),
                 "status": fields.get("Status", {}).get("fieldId"),
                 "description": fields.get("Description", {}).get("fieldId"),
             },
