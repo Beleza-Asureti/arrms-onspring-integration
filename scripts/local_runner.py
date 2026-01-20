@@ -743,15 +743,29 @@ def run_listener_with_sync(port: int, arrms_client, mock_onspring_client=None):
                 logger.info(f"    Medium (>25%): {confidence.get('medium', 0)}")
                 logger.info(f"    Low (<25%): {confidence.get('low', 0)}")
 
-            # Calculate what status would be set in Onspring
+            # Calculate Onspring field values (matching handler logic)
             total = summary.get("total_questions", 0)
-            approved = summary.get("approved_questions", 0)
+            complete = summary.get("approved_questions", 0)
+            open_questions = total - complete  # Calculated, not from unanswered_questions
+
+            logger.info("-" * 40)
+            logger.info("Calculated Onspring Field Values:")
+            logger.info(f"  Total Assessment Questions: {total}")
+            logger.info(f"  Complete Assessment Questions: {complete}")
+            logger.info(f"  Open Assessment Questions: {open_questions}")
+            if confidence:
+                logger.info(f"  High Confidence Questions: {confidence.get('very_high', 0)}")
+                logger.info(f"  Medium-High Confidence: {confidence.get('high', 0)}")
+                logger.info(f"  Medium-Low Confidence: {confidence.get('medium', 0)}")
+                logger.info(f"  Low Confidence Questions: {confidence.get('low', 0)}")
+
+            # Calculate what status would be set in Onspring
             answered = summary.get("answered_questions", 0)
             has_document = stats.get("metadata", {}).get("source_document") is not None
 
             if answered == 0:
                 status = "Not Started"
-            elif approved == total and has_document:
+            elif complete == total and has_document:
                 status = "Ready for Validation"
             else:
                 status = "Request in Process"
