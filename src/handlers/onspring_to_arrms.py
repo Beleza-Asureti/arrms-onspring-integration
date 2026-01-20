@@ -253,7 +253,6 @@ def sync_records_to_arrms(
                         urgency=transformed_record.get("urgency"),
                         assessment_type=transformed_record.get("assessment_type"),
                         due_date=transformed_record.get("due_date"),
-                        requested_return_date=transformed_record.get("requested_return_date"),
                         notes=transformed_record.get("notes") or transformed_record.get("description"),
                     )
                     arrms_questionnaire_id = existing_questionnaire.get("id")
@@ -271,7 +270,6 @@ def sync_records_to_arrms(
                         urgency=transformed_record.get("urgency"),
                         assessment_type=transformed_record.get("assessment_type"),
                         due_date=transformed_record.get("due_date"),
-                        requested_return_date=transformed_record.get("requested_return_date"),
                         notes=transformed_record.get("notes") or transformed_record.get("description"),
                     )
                     arrms_questionnaire_id = result.get("id")
@@ -397,8 +395,7 @@ def transform_record(onspring_record: Dict[str, Any]) -> Dict[str, Any]:
         "title": get_field_value("Title", "Untitled Questionnaire"),
         "client_name": get_field_value("Client"),
         "description": get_field_value("Description"),
-        "due_date": get_field_value("DueDate"),  # Assumes ISO format
-        "requested_return_date": get_field_value("Request Due Back to External Requestor"),
+        "due_date": get_field_value("Request Due Back to External Requestor"),  # Maps to Questionnaire.due_date
         # External system tracking
         "external_id": str(onspring_record.get("recordId")),
         "external_source": "onspring",
@@ -409,8 +406,7 @@ def transform_record(onspring_record: Dict[str, Any]) -> Dict[str, Any]:
             "field_ids": {
                 "title": fields.get("Title", {}).get("fieldId"),
                 "client": fields.get("Client", {}).get("fieldId"),
-                "due_date": fields.get("DueDate", {}).get("fieldId"),
-                "requested_return_date": fields.get("Request Due Back to External Requestor", {}).get("fieldId"),
+                "due_date": fields.get("Request Due Back to External Requestor", {}).get("fieldId"),
                 "status": fields.get("Status", {}).get("fieldId"),
                 "description": fields.get("Description", {}).get("fieldId"),
             },
