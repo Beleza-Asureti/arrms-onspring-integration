@@ -430,6 +430,7 @@ def transform_record(onspring_record: Dict[str, Any], onspring_client: "Onspring
         "due_date": get_field_value_by_id(
             14872
         ),  # Field 14872: Request Due Back to External Requestor -> Questionnaire.due_date
+        "notes": get_field_value_by_id(14888),  # Field 14888: Scope Summary -> Questionnaire.notes
         "requester_name": requester_name,
         # External system tracking
         "external_id": str(onspring_record.get("recordId")),
@@ -443,6 +444,7 @@ def transform_record(onspring_record: Dict[str, Any], onspring_client: "Onspring
                 # For multi-tenant, see GitHub issue #4
                 "requester_name": 14947,  # External Requestor Company Name (references app 249, field 14949)
                 "due_date": 14872,  # Request Due Back to External Requestor
+                "notes": 14888,  # Scope Summary
             },
             "synced_at": datetime.utcnow().isoformat(),
             "sync_type": "webhook",  # or "scheduled"
