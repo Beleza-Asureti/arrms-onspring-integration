@@ -179,7 +179,7 @@ def sync_records_to_arrms(
     for record in records:
         try:
             # Transform record to extract metadata
-            transformed_record = transform_record(record)
+            transformed_record = transform_record(record, onspring_client)
             onspring_record_id = str(record.get("recordId"))
 
             # Get all files from Onspring attachments field
@@ -291,6 +291,32 @@ def sync_records_to_arrms(
                 # Clean up temp file
                 os.unlink(temp_file_path)
 
+                # Update Onspring record with questionnaire link (INT-180)
+                try:
+                    # Construct questionnaire link URL
+                    arrms_base_url = os.environ.get("ARRMS_API_URL", "https://demo.preview.asureti.com")
+                    questionnaire_link = f"{arrms_base_url}/questionnaire-answers?questionnaire={arrms_questionnaire_id}"
+
+                    # Update Onspring field 15083 (Questionnaire Link)
+                    onspring_client.update_field_value(
+                        app_id=record.get("appId"),
+                        record_id=onspring_record_id,
+                        field_id=15083,
+                        value=questionnaire_link,
+                    )
+
+                    logger.info(
+                        f"Updated Onspring record {onspring_record_id} with questionnaire link",
+                        extra={"questionnaire_link": questionnaire_link},
+                    )
+
+                except Exception as link_error:
+                    # Log but don't fail the sync - questionnaire was created successfully
+                    logger.warning(
+                        f"Failed to update questionnaire link in Onspring for record {onspring_record_id}",
+                        extra={"error": str(link_error)},
+                    )
+
             except Exception as upload_error:
                 logger.error(
                     f"Failed to upload/update questionnaire for record {onspring_record_id}",
@@ -355,7 +381,7 @@ def sync_records_to_arrms(
     }
 
 
-def transform_record(onspring_record: Dict[str, Any]) -> Dict[str, Any]:
+def transform_record(onspring_record: Dict[str, Any], onspring_client: "OnspringClient") -> Dict[str, Any]:
     """
     Transform Onspring questionnaire record to ARRMS format.
 
@@ -363,17 +389,18 @@ def transform_record(onspring_record: Dict[str, Any]) -> Dict[str, Any]:
     {
         "recordId": 12345,
         "appId": 100,
-        "fields": {
-            "Title": {"value": "SOC 2 Assessment", "fieldId": 101},
-            "Client": {"value": "Integrity Risk", "fieldId": 102},
-            "DueDate": {"value": "2025-03-31", "fieldId": 103},
-            "Status": {"value": "New", "fieldId": 104},
-            "Description": {"value": "Annual assessment", "fieldId": 105}
-        }
+        "fieldData": [
+            {"fieldId": 101, "type": "String", "value": "SOC 2 Assessment"},
+            {"fieldId": 102, "type": "String", "value": "Integrity Risk"},
+            {"fieldId": 103, "type": "Date", "value": "2025-03-31"},
+            {"fieldId": 104, "type": "String", "value": "New"},
+            {"fieldId": 105, "type": "String", "value": "Annual assessment"}
+        ]
     }
 
     Args:
         onspring_record: Raw record from Onspring
+        onspring_client: Onspring client for resolving reference fields
 
     Returns:
         Transformed record for ARRMS with external system tracking
@@ -382,12 +409,43 @@ def transform_record(onspring_record: Dict[str, Any]) -> Dict[str, Any]:
 
     logger.debug("Transforming record", extra={"record_id": onspring_record.get("recordId")})
 
-    fields = onspring_record.get("fields", {})
+    field_data = onspring_record.get("fieldData", [])
 
-    # Helper to extract field value
+    # Helper to extract field value by field ID
+    def get_field_value_by_id(field_id: int, default=None):
+        for field in field_data:
+            if field.get("fieldId") == field_id:
+                return field.get("value", default)
+        return default
+
+    # Helper to extract field value by name (for backward compatibility if needed)
+    # Note: This won't work with the real API structure, kept for reference
     def get_field_value(field_name: str, default=None):
-        field_data = fields.get(field_name, {})
-        return field_data.get("value", default)
+        # This function is not used with the actual Onspring API structure
+        # Kept for documentation purposes
+        return default
+
+    # Resolve External Requestor Company Name (reference field)
+    # Field 14947 contains recordId pointing to app 249
+    # Field 14949 in app 249 contains the company name string
+    requester_name = None
+    company_record_id = get_field_value_by_id(14947)
+    if company_record_id:
+        try:
+            requester_name = onspring_client.resolve_reference_field(
+                referenced_app_id=249,
+                referenced_record_id=int(company_record_id),
+                field_id=14949,
+            )
+            logger.debug(
+                f"Resolved company name: {requester_name}",
+                extra={"company_record_id": company_record_id},
+            )
+        except Exception as e:
+            logger.warning(
+                f"Failed to resolve company name for record {company_record_id}: {str(e)}",
+                extra={"error": str(e)},
+            )
 
     # Transform to ARRMS format
     transformed = {
@@ -395,7 +453,11 @@ def transform_record(onspring_record: Dict[str, Any]) -> Dict[str, Any]:
         "title": get_field_value("Title", "Untitled Questionnaire"),
         "client_name": get_field_value("Client"),
         "description": get_field_value("Description"),
-        "due_date": get_field_value("DueDate"),  # Assumes ISO format
+        "due_date": get_field_value_by_id(
+            14872
+        ),  # Field 14872: Request Due Back to External Requestor -> Questionnaire.due_date
+        "notes": get_field_value_by_id(14888),  # Field 14888: Scope Summary -> Questionnaire.notes
+        "requester_name": requester_name,
         # External system tracking
         "external_id": str(onspring_record.get("recordId")),
         "external_source": "onspring",
@@ -404,11 +466,11 @@ def transform_record(onspring_record: Dict[str, Any]) -> Dict[str, Any]:
             "onspring_status": get_field_value("Status"),
             "onspring_url": f"https://app.onspring.com/record/{onspring_record.get('recordId')}",
             "field_ids": {
-                "title": fields.get("Title", {}).get("fieldId"),
-                "client": fields.get("Client", {}).get("fieldId"),
-                "due_date": fields.get("DueDate", {}).get("fieldId"),
-                "status": fields.get("Status", {}).get("fieldId"),
-                "description": fields.get("Description", {}).get("fieldId"),
+                # Hardcoded field IDs for demo (App ID 248)
+                # For multi-tenant, see GitHub issue #4
+                "requester_name": 14947,  # External Requestor Company Name (references app 249, field 14949)
+                "due_date": 14872,  # Request Due Back to External Requestor
+                "notes": 14888,  # Scope Summary
             },
             "synced_at": datetime.utcnow().isoformat(),
             "sync_type": "webhook",  # or "scheduled"
