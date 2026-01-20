@@ -154,6 +154,51 @@ class OnspringClient:
             logger.error(f"Request error retrieving record: {str(e)}")
             raise OnspringAPIError(f"Request failed: {str(e)}")
 
+    def resolve_reference_field(
+        self,
+        referenced_app_id: int,
+        referenced_record_id: int,
+        field_id: int,
+    ) -> Optional[str]:
+        """
+        Resolve a reference field by fetching the referenced record and extracting a field value.
+
+        Args:
+            referenced_app_id: App ID of the referenced record
+            referenced_record_id: Record ID of the referenced record
+            field_id: Field ID in the referenced record to extract
+
+        Returns:
+            Field value as string, or None if not found
+
+        Raises:
+            OnspringAPIError: If API request fails
+        """
+        try:
+            # Fetch the referenced record
+            referenced_record = self.get_record(app_id=referenced_app_id, record_id=referenced_record_id)
+
+            # Extract field data from the record
+            field_data = referenced_record.get("fieldData", [])
+
+            # Find the field with the specified field_id
+            for field in field_data:
+                if field.get("fieldId") == field_id:
+                    value = field.get("value")
+                    if value is not None:
+                        return str(value)
+
+            logger.warning(
+                f"Field {field_id} not found in referenced record {referenced_record_id} from app {referenced_app_id}"
+            )
+            return None
+
+        except Exception as e:
+            logger.error(
+                f"Failed to resolve reference field {field_id} in app {referenced_app_id}, record {referenced_record_id}: {str(e)}"
+            )
+            return None
+
     def get_records(
         self,
         app_id: int,
