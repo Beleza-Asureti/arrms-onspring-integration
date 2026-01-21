@@ -1,0 +1,329 @@
+openapi: 3.0.3
+info:
+  title: ARRMS API
+  description: |
+    API endpoints used by the ARRMS-Onspring integration.
+
+    This spec documents only the endpoints actually used by this integration,
+    not the complete ARRMS API.
+  version: 1.0.0
+  contact:
+    name: ARRMS Integration
+
+servers:
+  - url: '{baseUrl}'
+    description: ARRMS API Server
+    variables:
+      baseUrl:
+        default: https://api.arrms.example.com
+        description: Base URL of the ARRMS API
+
+security:
+  - ApiKeyAuth: []
+
+paths:
+  /health:
+    get:
+      summary: Health Check
+      description: Check if the ARRMS API is available
+      operationId: healthCheck
+      tags:
+        - System
+      responses:
+        '200':
+          description: API is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+
+  /api/v1/integrations/questionnaires/upload:
+    post:
+      summary: Upload Questionnaire
+      description: |
+        Upload a new questionnaire file with external reference information.
+        Used when creating a new questionnaire from Onspring.
+      operationId: uploadQuestionnaire
+      tags:
+        - Questionnaires
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - file
+                - external_id
+                - external_source
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: The questionnaire file (Excel, etc.)
+                external_id:
+                  type: string
+                  description: External reference ID (Onspring record ID)
+                  example: "12345"
+                external_source:
+                  type: string
+                  description: Source system identifier
+                  example: onspring
+                external_metadata:
+                  type: string
+                  description: JSON-encoded metadata from source system
+                  example: '{"company_name": "Acme Corp", "due_date": "2026-03-31"}'
+      responses:
+        '200':
+          description: Questionnaire uploaded successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QuestionnaireResponse'
+        '400':
+          description: Invalid request
+        '401':
+          description: Unauthorized
+
+  /api/v1/integrations/questionnaires/{questionnaire_id}/file:
+    put:
+      summary: Update Questionnaire File
+      description: |
+        Update an existing questionnaire with a new file.
+        Used when Onspring record is updated with a new questionnaire file.
+      operationId: updateQuestionnaireFile
+      tags:
+        - Questionnaires
+      parameters:
+        - name: questionnaire_id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: ARRMS questionnaire ID
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - file
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: The updated questionnaire file
+                external_metadata:
+                  type: string
+                  description: JSON-encoded metadata from source system
+      responses:
+        '200':
+          description: Questionnaire updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QuestionnaireResponse'
+        '404':
+          description: Questionnaire not found
+
+  /api/v1/integrations/questionnaires/find:
+    get:
+      summary: Find Questionnaire by External ID
+      description: |
+        Look up a questionnaire by its external reference.
+        Used to check if an Onspring record already has an ARRMS questionnaire.
+      operationId: findQuestionnaireByExternalId
+      tags:
+        - Questionnaires
+      parameters:
+        - name: external_id
+          in: query
+          required: true
+          schema:
+            type: string
+          description: External reference ID (Onspring record ID)
+        - name: external_source
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Source system identifier
+          example: onspring
+      responses:
+        '200':
+          description: Questionnaire found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QuestionnaireResponse'
+        '404':
+          description: Questionnaire not found
+
+  /api/v1/integrations/questionnaires/{external_id}/statistics:
+    get:
+      summary: Get Questionnaire Statistics
+      description: |
+        Get processing statistics for a questionnaire.
+        Returns question counts, approval status, and completion metrics.
+      operationId: getQuestionnaireStatistics
+      tags:
+        - Questionnaires
+      parameters:
+        - name: external_id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: External reference ID (Onspring record ID)
+        - name: external_source
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Source system identifier
+          example: onspring
+      responses:
+        '200':
+          description: Statistics retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QuestionnaireStatistics'
+        '404':
+          description: Questionnaire not found
+
+  /api/v1/questionnaires/{questionnaire_id}/documents:
+    post:
+      summary: Upload Supporting Document
+      description: Upload an additional document to an existing questionnaire
+      operationId: uploadDocument
+      tags:
+        - Documents
+      parameters:
+        - name: questionnaire_id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: ARRMS questionnaire ID
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - file
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: The document file
+                description:
+                  type: string
+                  description: Document description
+      responses:
+        '200':
+          description: Document uploaded successfully
+        '404':
+          description: Questionnaire not found
+
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+      description: ARRMS API key
+
+  schemas:
+    QuestionnaireResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          description: ARRMS questionnaire ID
+          example: "q-abc123"
+        status:
+          type: string
+          description: Processing status
+          enum: [pending, processing, completed, error]
+          example: processing
+        external_references:
+          type: array
+          items:
+            $ref: '#/components/schemas/ExternalReference'
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        document_url:
+          type: string
+          description: URL to view the questionnaire in ARRMS
+          example: "https://arrms.example.com/questionnaires/q-abc123"
+
+    ExternalReference:
+      type: object
+      properties:
+        external_id:
+          type: string
+          description: External system record ID
+          example: "12345"
+        external_source:
+          type: string
+          description: Source system identifier
+          example: onspring
+
+    QuestionnaireStatistics:
+      type: object
+      properties:
+        questionnaire_id:
+          type: string
+          example: "q-abc123"
+        summary:
+          type: object
+          properties:
+            total_questions:
+              type: integer
+              description: Total number of questions
+              example: 150
+            answered_questions:
+              type: integer
+              description: Questions with responses
+              example: 120
+            unanswered_questions:
+              type: integer
+              description: Questions without responses
+              example: 30
+            approved_questions:
+              type: integer
+              description: Questions with approved responses
+              example: 100
+            pending_questions:
+              type: integer
+              description: Questions pending review
+              example: 20
+            completion_percentage:
+              type: number
+              format: float
+              description: Percentage of questions answered
+              example: 80.0
+        status:
+          type: string
+          enum: [New, In Progress, Pending Review, Complete]
+          example: In Progress
+
+tags:
+  - name: System
+    description: System health and status
+  - name: Questionnaires
+    description: Questionnaire management operations
+  - name: Documents
+    description: Supporting document operations

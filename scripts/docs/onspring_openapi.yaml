@@ -1,0 +1,381 @@
+openapi: 3.0.3
+info:
+  title: Onspring API
+  description: |
+    Onspring API endpoints used by the ARRMS integration.
+
+    This spec documents only the endpoints actually used by this integration,
+    not the complete Onspring API. For full documentation, see:
+    https://software.onspring.com/api
+
+  version: "2"
+  contact:
+    name: Onspring API
+
+servers:
+  - url: '{baseUrl}'
+    description: Onspring API Server
+    variables:
+      baseUrl:
+        default: https://api.onspring.com
+        description: Base URL of the Onspring API
+
+security:
+  - ApiKeyAuth: []
+
+paths:
+  /Ping:
+    get:
+      summary: Health Check
+      description: Verify API connectivity and authentication
+      operationId: ping
+      tags:
+        - System
+      responses:
+        '200':
+          description: API is available
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  apiVersion:
+                    type: string
+                    example: "2"
+
+  /Records/appId/{appId}/recordId/{recordId}:
+    get:
+      summary: Get Record
+      description: Retrieve a single record by ID from a specific app
+      operationId: getRecord
+      tags:
+        - Records
+      parameters:
+        - name: appId
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: Onspring application ID
+          example: 248
+        - name: recordId
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: Record ID within the application
+          example: 12345
+      responses:
+        '200':
+          description: Record retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Record'
+        '401':
+          description: Unauthorized
+        '404':
+          description: Record not found
+
+    delete:
+      summary: Delete Record
+      description: Delete a record from an application
+      operationId: deleteRecord
+      tags:
+        - Records
+      parameters:
+        - name: appId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: recordId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Record deleted
+        '404':
+          description: Record not found
+
+  /Records:
+    put:
+      summary: Create or Update Record
+      description: |
+        Create a new record or update an existing record.
+        If recordId is provided, updates the record. Otherwise creates a new record.
+      operationId: saveRecord
+      tags:
+        - Records
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RecordSaveRequest'
+      responses:
+        '200':
+          description: Record saved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecordSaveResponse'
+        '400':
+          description: Invalid request
+
+  /Records/Query:
+    post:
+      summary: Query Records
+      description: Search for records in an application with optional filtering
+      operationId: queryRecords
+      tags:
+        - Records
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RecordQueryRequest'
+      responses:
+        '200':
+          description: Query executed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecordQueryResponse'
+
+  /Files/recordId/{recordId}/fieldId/{fieldId}/fileId/{fileId}:
+    get:
+      summary: Get File Info
+      description: Get metadata about a file attachment
+      operationId: getFileInfo
+      tags:
+        - Files
+      parameters:
+        - name: recordId
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: Record ID containing the file
+        - name: fieldId
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: Field ID of the file/attachment field
+        - name: fileId
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: File ID
+      responses:
+        '200':
+          description: File info retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FileInfo'
+        '404':
+          description: File not found
+
+  /Files/recordId/{recordId}/fieldId/{fieldId}/fileId/{fileId}/file:
+    get:
+      summary: Download File
+      description: Download the actual file content
+      operationId: downloadFile
+      tags:
+        - Files
+      parameters:
+        - name: recordId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: fieldId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: fileId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: File content
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+        '404':
+          description: File not found
+
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-ApiKey
+      description: Onspring API key
+
+  schemas:
+    Record:
+      type: object
+      properties:
+        recordId:
+          type: integer
+          description: Unique record identifier
+          example: 12345
+        appId:
+          type: integer
+          description: Application ID the record belongs to
+          example: 248
+        fieldData:
+          type: array
+          description: Array of field values
+          items:
+            $ref: '#/components/schemas/FieldValue'
+
+    FieldValue:
+      type: object
+      properties:
+        fieldId:
+          type: integer
+          description: Field identifier
+          example: 101
+        type:
+          type: string
+          description: Field data type
+          enum: [String, Integer, Date, DateTime, AttachmentList, ReferenceField]
+          example: String
+        value:
+          description: Field value (type varies based on field type)
+          oneOf:
+            - type: string
+            - type: integer
+            - type: array
+              items:
+                $ref: '#/components/schemas/FileAttachment'
+
+    FileAttachment:
+      type: object
+      description: File attachment within an AttachmentList field
+      properties:
+        fileId:
+          type: integer
+          example: 1001
+        fileName:
+          type: string
+          example: questionnaire.xlsx
+        fileSize:
+          type: integer
+          description: File size in bytes
+          example: 15000
+        contentType:
+          type: string
+          example: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
+        notes:
+          type: string
+          description: Optional notes about the file
+
+    RecordSaveRequest:
+      type: object
+      required:
+        - appId
+        - fields
+      properties:
+        appId:
+          type: integer
+          description: Application ID
+          example: 248
+        recordId:
+          type: integer
+          description: Record ID (omit for new records)
+          example: 12345
+        fields:
+          type: object
+          description: Field values keyed by field ID (as strings)
+          additionalProperties: true
+          example:
+            "101": "Updated Title"
+            "15083": "https://arrms.example.com/q/123"
+
+    RecordSaveResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+          description: The saved record ID
+          example: 12345
+        warnings:
+          type: array
+          description: Any warnings from the save operation
+          items:
+            type: string
+
+    RecordQueryRequest:
+      type: object
+      required:
+        - appId
+      properties:
+        appId:
+          type: integer
+          description: Application ID to query
+          example: 248
+        filter:
+          type: object
+          description: Optional filter criteria
+        pagingRequest:
+          type: object
+          properties:
+            pageNumber:
+              type: integer
+              default: 1
+            pageSize:
+              type: integer
+              default: 100
+              maximum: 1000
+
+    RecordQueryResponse:
+      type: object
+      properties:
+        pageNumber:
+          type: integer
+        pageSize:
+          type: integer
+        totalPages:
+          type: integer
+        totalRecords:
+          type: integer
+        records:
+          type: array
+          items:
+            $ref: '#/components/schemas/Record'
+
+    FileInfo:
+      type: object
+      properties:
+        fileId:
+          type: integer
+        fileName:
+          type: string
+        fileSize:
+          type: integer
+        contentType:
+          type: string
+        notes:
+          type: string
+
+tags:
+  - name: System
+    description: System health and connectivity
+  - name: Records
+    description: Record CRUD operations
+  - name: Files
+    description: File attachment operations

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ARRMS Integration - Local Dev</title>
+    <title>ARRMS Integration - Command Center</title>
     <style>
         * {
             box-sizing: border-box;
@@ -20,7 +20,7 @@
         }
 
         .container {
-            max-width: 1200px;
+            max-width: 1400px;
             margin: 0 auto;
         }
 
@@ -37,6 +37,18 @@
             font-size: 1.5rem;
             font-weight: 600;
             color: #fff;
+        }
+
+        h2 {
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: #888;
+            margin-bottom: 10px;
+        }
+
+        .status-badges {
+            display: flex;
+            gap: 20px;
         }
 
         .status-badge {
@@ -62,11 +74,74 @@
             background: #f87171;
         }
 
+        /* Grid Layout */
+        .main-grid {
+            display: grid;
+            grid-template-columns: 1fr 350px;
+            gap: 20px;
+        }
+
+        .left-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .right-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        /* Panel Styles */
+        .panel {
+            background: #16162a;
+            border: 1px solid #333;
+            border-radius: 8px;
+            padding: 15px;
+        }
+
+        .panel-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+
+        /* Services Panel */
+        .services-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        .service-card {
+            background: #0d0d1a;
+            border: 1px solid #333;
+            border-radius: 6px;
+            padding: 12px;
+        }
+
+        .service-card .name {
+            font-size: 0.75rem;
+            color: #888;
+            margin-bottom: 4px;
+        }
+
+        .service-card .value {
+            font-size: 0.9rem;
+            color: #fff;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        /* Controls */
         .controls {
             display: flex;
             gap: 15px;
-            margin-bottom: 20px;
             flex-wrap: wrap;
+            align-items: flex-end;
         }
 
         .input-group {
@@ -86,7 +161,7 @@
             padding: 10px 14px;
             border: 1px solid #333;
             border-radius: 6px;
-            background: #16162a;
+            background: #0d0d1a;
             color: #fff;
             font-size: 0.9rem;
             width: 120px;
@@ -98,16 +173,17 @@
         }
 
         .btn {
-            padding: 10px 20px;
+            padding: 10px 16px;
             border: none;
             border-radius: 6px;
-            font-size: 0.9rem;
+            font-size: 0.85rem;
             font-weight: 500;
             cursor: pointer;
             transition: all 0.2s;
             display: flex;
             align-items: center;
             gap: 8px;
+            white-space: nowrap;
         }
 
         .btn:disabled {
@@ -133,6 +209,24 @@
             background: #444;
         }
 
+        .btn-success {
+            background: #059669;
+            color: #fff;
+        }
+
+        .btn-success:hover:not(:disabled) {
+            background: #047857;
+        }
+
+        .btn-warning {
+            background: #d97706;
+            color: #fff;
+        }
+
+        .btn-warning:hover:not(:disabled) {
+            background: #b45309;
+        }
+
         .btn-clear {
             background: transparent;
             color: #888;
@@ -144,12 +238,61 @@
             color: #fff;
         }
 
+        .btn-sm {
+            padding: 6px 12px;
+            font-size: 0.75rem;
+        }
+
+        /* Handler Buttons */
+        .handler-buttons {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        /* Tabs */
+        .tabs {
+            display: flex;
+            gap: 0;
+            border-bottom: 1px solid #333;
+            margin-bottom: 10px;
+        }
+
+        .tab {
+            padding: 8px 16px;
+            background: transparent;
+            border: none;
+            color: #888;
+            cursor: pointer;
+            font-size: 0.8rem;
+            border-bottom: 2px solid transparent;
+            margin-bottom: -1px;
+        }
+
+        .tab:hover {
+            color: #fff;
+        }
+
+        .tab.active {
+            color: #6366f1;
+            border-bottom-color: #6366f1;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        /* Log Container */
         .log-container {
             background: #0d0d1a;
             border: 1px solid #333;
             border-radius: 8px;
-            height: calc(100vh - 200px);
-            min-height: 400px;
+            height: calc(100vh - 400px);
+            min-height: 300px;
             display: flex;
             flex-direction: column;
         }
@@ -162,12 +305,6 @@
             border-bottom: 1px solid #333;
             background: #16162a;
             border-radius: 8px 8px 0 0;
-        }
-
-        .log-header h2 {
-            font-size: 0.875rem;
-            font-weight: 500;
-            color: #888;
         }
 
         .log-count {
@@ -206,9 +343,22 @@
             width: 85px;
         }
 
+        .log-source {
+            flex-shrink: 0;
+            width: 80px;
+            font-weight: 600;
+            font-size: 0.7rem;
+        }
+
+        .log-source.ONSPRING { color: #f472b6; }
+        .log-source.HANDLER { color: #a78bfa; }
+        .log-source.ARRMS { color: #34d399; }
+        .log-source.WEBHOOK { color: #fbbf24; }
+        .log-source.SYSTEM { color: #60a5fa; }
+
         .log-level {
             flex-shrink: 0;
-            width: 70px;
+            width: 60px;
             font-weight: 600;
         }
 
@@ -216,7 +366,10 @@
         .log-level.ERROR { color: #f87171; }
         .log-level.WARNING { color: #fbbf24; }
         .log-level.DEBUG { color: #888; }
-        .log-level.WEBHOOK { color: #4ade80; }
+        .log-level.HANDLER { color: #a78bfa; }
+        .log-level.ONSPRING { color: #f472b6; }
+        .log-level.ARRMS { color: #34d399; }
+        .log-level.WEBHOOK { color: #fbbf24; }
 
         .log-message {
             color: #ddd;
@@ -263,6 +416,46 @@
             opacity: 0.5;
         }
 
+        /* Data Panel */
+        .data-panel {
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .data-item {
+            background: #0d0d1a;
+            border: 1px solid #333;
+            border-radius: 6px;
+            padding: 10px;
+            margin-bottom: 8px;
+        }
+
+        .data-item-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 6px;
+        }
+
+        .data-item-title {
+            font-weight: 600;
+            font-size: 0.85rem;
+        }
+
+        .data-item-meta {
+            font-size: 0.7rem;
+            color: #666;
+        }
+
+        .data-item-content {
+            font-family: "SF Mono", Monaco, monospace;
+            font-size: 0.75rem;
+            color: #888;
+            white-space: pre-wrap;
+            max-height: 100px;
+            overflow-y: auto;
+        }
+
         .spinner {
             width: 16px;
             height: 16px;
@@ -276,9 +469,26 @@
             to { transform: rotate(360deg); }
         }
 
+        @media (max-width: 1200px) {
+            .main-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .right-panel {
+                flex-direction: row;
+                flex-wrap: wrap;
+            }
+
+            .right-panel .panel {
+                flex: 1;
+                min-width: 300px;
+            }
+        }
+
         @media (max-width: 768px) {
             .controls {
                 flex-direction: column;
+                align-items: stretch;
             }
 
             input {
@@ -288,14 +498,22 @@
             .log-time {
                 display: none;
             }
+
+            .services-grid {
+                grid-template-columns: 1fr;
+            }
         }
     </style>
 </head>
 <body>
     <div class="container">
         <header>
-            <h1>ARRMS Integration - Local Dev</h1>
-            <div style="display: flex; gap: 20px;">
+            <h1>ARRMS Integration - Command Center</h1>
+            <div class="status-badges">
+                <div class="status-badge" title="Mock Onspring Server">
+                    <span class="status-dot" id="onspringDot"></span>
+                    <span id="onspringStatus">Onspring: Checking...</span>
+                </div>
                 <div class="status-badge" title="ARRMS API Connection">
                     <span class="status-dot" id="arrmsDot"></span>
                     <span id="arrmsStatus">ARRMS: Checking...</span>
@@ -307,62 +525,165 @@
             </div>
         </header>
 
-        <div class="controls">
-            <div class="input-group">
-                <label>Record ID</label>
-                <input type="number" id="recordId" value="12345" />
-            </div>
-            <div class="input-group">
-                <label>App ID</label>
-                <input type="number" id="appId" value="100" />
-            </div>
-            <div class="input-group">
-                <label>&nbsp;</label>
-                <button class="btn btn-primary" id="sendBtn" onclick="sendQuestionnaire()">
-                    <span id="sendBtnText">Send to ARRMS</span>
-                </button>
-            </div>
-            <div class="input-group">
-                <label>&nbsp;</label>
-                <button class="btn btn-secondary" id="statsBtn" onclick="getStats()">
-                    Get Stats
-                </button>
-            </div>
-            <div class="input-group" style="margin-left: auto;">
-                <label>&nbsp;</label>
-                <button class="btn btn-clear" onclick="clearLogs()">
-                    Clear Logs
-                </button>
-            </div>
-        </div>
+        <div class="main-grid">
+            <div class="left-panel">
+                <!-- Quick Actions Panel -->
+                <div class="panel">
+                    <h2>Quick Actions</h2>
+                    <div class="controls">
+                        <div class="input-group">
+                            <label>Record ID</label>
+                            <input type="number" id="recordId" value="12345" />
+                        </div>
+                        <div class="input-group">
+                            <label>App ID</label>
+                            <input type="number" id="appId" value="248" />
+                        </div>
+                        <div class="input-group">
+                            <label>Direct ARRMS Calls</label>
+                            <div style="display: flex; gap: 8px;">
+                                <button class="btn btn-primary" id="sendBtn" onclick="sendQuestionnaire()">
+                                    <span id="sendBtnText">Send to ARRMS</span>
+                                </button>
+                                <button class="btn btn-secondary" id="statsBtn" onclick="getStats()">
+                                    Get Stats
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
 
-        <div class="controls" style="margin-top: -10px;">
-            <div class="input-group" style="flex: 1; max-width: 350px;">
-                <label>ARRMS API Key <span id="currentKeyHint" style="color: #666; font-weight: normal;"></span></label>
-                <div style="display: flex; gap: 8px;">
-                    <input type="password" id="apiKeyInput" placeholder="Enter new API key..." style="flex: 1; width: auto;" />
-                    <button class="btn btn-secondary" id="apiKeyBtn" onclick="updateApiKey()">
-                        Update Key
-                    </button>
+                <!-- Handler Execution Panel -->
+                <div class="panel">
+                    <h2>Run Actual Handlers (src/handlers/*)</h2>
+                    <div class="handler-buttons">
+                        <button class="btn btn-success" onclick="runHandler('webhook')">
+                            Run Webhook Handler
+                        </button>
+                        <button class="btn btn-warning" onclick="runHandler('sync')">
+                            Run Sync Handler
+                        </button>
+                        <button class="btn btn-secondary" onclick="runHandler('callback')">
+                            Run Callback Handler
+                        </button>
+                    </div>
+                    <p style="font-size: 0.75rem; color: #666; margin-top: 10px;">
+                        Executes actual handler code against mock Onspring server. Uses Record ID and App ID from above.
+                    </p>
+                </div>
+
+                <!-- Log Output -->
+                <div class="log-container">
+                    <div class="log-header">
+                        <h2 style="margin: 0;">Log Output</h2>
+                        <div style="display: flex; gap: 10px; align-items: center;">
+                            <span class="log-count" id="logCount">0 entries</span>
+                            <button class="btn btn-clear btn-sm" onclick="clearLogs()">Clear</button>
+                        </div>
+                    </div>
+                    <div class="log-entries" id="logEntries">
+                        <div class="empty-state" id="emptyState">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                            </svg>
+                            <span>No log entries yet</span>
+                            <span style="font-size: 0.75rem;">Click any button to start</span>
+                        </div>
+                    </div>
                 </div>
             </div>
-            <div class="input-group" style="align-self: flex-end;">
-                <span style="font-size: 0.75rem; color: #666;">Session only - resets on server restart</span>
-            </div>
-        </div>
 
-        <div class="log-container">
-            <div class="log-header">
-                <h2>Log Output</h2>
-                <span class="log-count" id="logCount">0 entries</span>
-            </div>
-            <div class="log-entries" id="logEntries">
-                <div class="empty-state" id="emptyState">
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                    </svg>
-                    <span>No log entries yet</span>
-                    <span style="font-size: 0.75rem;">Click "Send to ARRMS" to start</span>
+            <div class="right-panel">
+                <!-- Services Panel -->
+                <div class="panel">
+                    <h2>Services Status</h2>
+                    <div class="services-grid">
+                        <div class="service-card">
+                            <div class="name">Mock Onspring</div>
+                            <div class="value">
+                                <span class="status-dot" id="mockOnspringDot"></span>
+                                <span id="mockOnspringStatus">-</span>
+                            </div>
+                        </div>
+                        <div class="service-card">
+                            <div class="name">ARRMS API</div>
+                            <div class="value">
+                                <span class="status-dot" id="arrmsApiDot"></span>
+                                <span id="arrmsApiStatus">-</span>
+                            </div>
+                        </div>
+                        <div class="service-card">
+                            <div class="name">Mock Records</div>
+                            <div class="value" id="mockRecordsCount">-</div>
+                        </div>
+                        <div class="service-card">
+                            <div class="name">Onspring Updates</div>
+                            <div class="value" id="onspringUpdatesCount">-</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Configuration Panel -->
+                <div class="panel">
+                    <h2>Configuration</h2>
+                    <div class="input-group" style="margin-bottom: 10px;">
+                        <label>ARRMS API URL <span id="currentUrlHint" style="color: #666; font-weight: normal;"></span></label>
+                        <div style="display: flex; gap: 8px;">
+                            <input type="text" id="apiUrlInput" placeholder="https://..." style="flex: 1; width: auto;" />
+                            <button class="btn btn-secondary btn-sm" onclick="updateApiUrl()">Update</button>
+                        </div>
+                    </div>
+                    <div class="input-group" style="margin-bottom: 10px;">
+                        <label>ARRMS API Key <span id="currentKeyHint" style="color: #666; font-weight: normal;"></span></label>
+                        <div style="display: flex; gap: 8px;">
+                            <input type="password" id="apiKeyInput" placeholder="Enter new key..." style="flex: 1; width: auto;" />
+                            <button class="btn btn-secondary btn-sm" onclick="updateApiKey()">Update</button>
+                        </div>
+                    </div>
+                    <p style="font-size: 0.7rem; color: #666;">Session only - resets on server restart</p>
+                </div>
+
+                <!-- API Documentation Panel -->
+                <div class="panel">
+                    <h2>API Documentation</h2>
+                    <div style="display: flex; flex-direction: column; gap: 8px;">
+                        <a href="/docs/arrms" target="_blank" class="btn btn-secondary btn-sm" style="text-decoration: none; justify-content: center;">
+                            ARRMS API Docs
+                        </a>
+                        <a href="/docs/onspring" target="_blank" class="btn btn-secondary btn-sm" style="text-decoration: none; justify-content: center;">
+                            Onspring API Docs
+                        </a>
+                    </div>
+                    <p style="font-size: 0.7rem; color: #666; margin-top: 10px;">OpenAPI specs for endpoints used by this integration</p>
+                </div>
+
+                <!-- Data Viewer Panel -->
+                <div class="panel">
+                    <div class="tabs">
+                        <button class="tab active" onclick="switchTab('mock-records')">Mock Records</button>
+                        <button class="tab" onclick="switchTab('onspring-updates')">Onspring Updates</button>
+                    </div>
+
+                    <div id="tab-mock-records" class="tab-content active">
+                        <div class="data-panel" id="mockRecordsPanel">
+                            <div class="empty-state" style="height: auto; padding: 20px;">
+                                <span>Loading...</span>
+                            </div>
+                        </div>
+                        <button class="btn btn-clear btn-sm" onclick="loadMockRecords()" style="margin-top: 10px;">Refresh</button>
+                    </div>
+
+                    <div id="tab-onspring-updates" class="tab-content">
+                        <div class="data-panel" id="onspringUpdatesPanel">
+                            <div class="empty-state" style="height: auto; padding: 20px;">
+                                <span>No updates yet</span>
+                            </div>
+                        </div>
+                        <div style="display: flex; gap: 8px; margin-top: 10px;">
+                            <button class="btn btn-clear btn-sm" onclick="loadOnspringUpdates()">Refresh</button>
+                            <button class="btn btn-clear btn-sm" onclick="clearOnspringUpdates()">Clear</button>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -372,51 +693,81 @@
         let eventSource = null;
         let logCount = 0;
         let isConnected = false;
-        let arrmsCheckInterval = null;
+        let statusCheckInterval = null;
 
         function init() {
             connectSSE();
             fetchInitialLogs();
-            checkArrmsStatus();
-            // Check ARRMS status every 10 seconds
-            arrmsCheckInterval = setInterval(checkArrmsStatus, 10000);
+            checkStatus();
+            loadMockRecords();
+            loadOnspringUpdates();
+            statusCheckInterval = setInterval(checkStatus, 5000);
         }
 
-        async function checkArrmsStatus() {
-            const dot = document.getElementById('arrmsDot');
-            const text = document.getElementById('arrmsStatus');
-
+        async function checkStatus() {
             try {
-                const controller = new AbortController();
-                const timeout = setTimeout(() => controller.abort(), 8000);
-
-                const res = await fetch('/api/status', { signal: controller.signal });
-                clearTimeout(timeout);
-
-                if (!res.ok) throw new Error(`HTTP ${res.status}`);
-
+                const res = await fetch('/api/status');
                 const data = await res.json();
 
-                if (data.arrms_connected) {
-                    dot.className = 'status-dot connected';
-                    text.textContent = 'ARRMS: Connected';
-                    text.title = data.arrms_url;
+                // Update Mock Onspring status
+                const mockDot = document.getElementById('mockOnspringDot');
+                const mockStatus = document.getElementById('mockOnspringStatus');
+                const onspringDot = document.getElementById('onspringDot');
+                const onspringStatus = document.getElementById('onspringStatus');
+
+                if (data.mock_onspring_running) {
+                    mockDot.className = 'status-dot connected';
+                    mockStatus.textContent = `Port ${data.mock_onspring_port}`;
+                    onspringDot.className = 'status-dot connected';
+                    onspringStatus.textContent = 'Onspring: Mock';
                 } else {
-                    dot.className = 'status-dot error';
-                    const errMsg = data.arrms_error || 'Not connected';
-                    text.textContent = `ARRMS: Down`;
-                    text.title = errMsg;
+                    mockDot.className = 'status-dot error';
+                    mockStatus.textContent = 'Stopped';
+                    onspringDot.className = 'status-dot error';
+                    onspringStatus.textContent = 'Onspring: Down';
                 }
 
-                // Update current key hint
-                const keyHint = document.getElementById('currentKeyHint');
-                if (data.arrms_api_key_masked) {
-                    keyHint.textContent = `(Current: ${data.arrms_api_key_masked})`;
+                // Update ARRMS status
+                const arrmsDot = document.getElementById('arrmsDot');
+                const arrmsStatusEl = document.getElementById('arrmsStatus');
+                const arrmsApiDot = document.getElementById('arrmsApiDot');
+                const arrmsApiStatus = document.getElementById('arrmsApiStatus');
+
+                if (data.arrms_connected) {
+                    arrmsDot.className = 'status-dot connected';
+                    arrmsStatusEl.textContent = 'ARRMS: Connected';
+                    arrmsApiDot.className = 'status-dot connected';
+                    arrmsApiStatus.textContent = 'Connected';
+                } else {
+                    arrmsDot.className = 'status-dot error';
+                    arrmsStatusEl.textContent = 'ARRMS: Down';
+                    arrmsStatusEl.title = data.arrms_error || 'Not connected';
+                    arrmsApiDot.className = 'status-dot error';
+                    arrmsApiStatus.textContent = data.arrms_error ? 'Error' : 'Down';
                 }
+
+                // Update counts
+                document.getElementById('mockRecordsCount').textContent = data.mock_records_count || '0';
+                document.getElementById('onspringUpdatesCount').textContent = data.onspring_updates_count || '0';
+
+                // Update API URL hint
+                if (data.arrms_url) {
+                    const urlHint = document.getElementById('currentUrlHint');
+                    // Truncate long URLs
+                    const displayUrl = data.arrms_url.length > 30
+                        ? data.arrms_url.substring(0, 30) + '...'
+                        : data.arrms_url;
+                    urlHint.textContent = `(${displayUrl})`;
+                    urlHint.title = data.arrms_url;
+                }
+
+                // Update API key hint
+                if (data.arrms_api_key_masked) {
+                    document.getElementById('currentKeyHint').textContent = `(${data.arrms_api_key_masked})`;
+                }
+
             } catch (err) {
-                dot.className = 'status-dot error';
-                text.textContent = 'ARRMS: Error';
-                text.title = err.message;
+                console.error('Status check failed:', err);
             }
         }
 
@@ -428,7 +779,7 @@
             eventSource = new EventSource('/api/logs/stream');
 
             eventSource.addEventListener('connected', () => {
-                setStatus(true);
+                setStreamStatus(true);
             });
 
             eventSource.addEventListener('log', (e) => {
@@ -437,13 +788,12 @@
             });
 
             eventSource.onerror = () => {
-                setStatus(false);
-                // Reconnect after delay
+                setStreamStatus(false);
                 setTimeout(connectSSE, 3000);
             };
         }
 
-        function setStatus(connected) {
+        function setStreamStatus(connected) {
             isConnected = connected;
             const dot = document.getElementById('statusDot');
             const text = document.getElementById('statusText');
@@ -453,7 +803,7 @@
                 text.textContent = 'Stream: Connected';
             } else {
                 dot.className = 'status-dot error';
-                text.textContent = 'Stream: Disconnected';
+                text.textContent = 'Stream: Reconnecting...';
             }
         }
 
@@ -480,14 +830,16 @@
 
             const time = new Date(entry.timestamp).toLocaleTimeString();
             const hasData = entry.data && Object.keys(entry.data).length > 0;
+            const source = entry.source || 'SYSTEM';
 
             let html = `
                 <span class="log-time">${time}</span>
+                <span class="log-source ${source}">${source}</span>
                 <span class="log-level ${entry.level}">${entry.level}</span>
                 <span class="log-message">${escapeHtml(entry.message)}`;
 
             if (hasData) {
-                html += `<span class="log-toggle" onclick="toggleData(this)">[show data]</span>`;
+                html += `<span class="log-toggle" onclick="toggleData(this)">[data]</span>`;
             }
 
             html += `</span>`;
@@ -514,11 +866,11 @@
             if (data.style.display === 'none') {
                 data.style.display = 'block';
                 entry.classList.add('expanded');
-                el.textContent = '[hide data]';
+                el.textContent = '[hide]';
             } else {
                 data.style.display = 'none';
                 entry.classList.remove('expanded');
-                el.textContent = '[show data]';
+                el.textContent = '[data]';
             }
         }
 
@@ -542,31 +894,100 @@
             document.getElementById('logCount').textContent = '0 entries';
         }
 
+        function switchTab(tabId) {
+            // Update tab buttons
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            event.target.classList.add('active');
+
+            // Update tab content
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            document.getElementById('tab-' + tabId).classList.add('active');
+        }
+
+        async function loadMockRecords() {
+            const panel = document.getElementById('mockRecordsPanel');
+            try {
+                const res = await fetch('/api/mock-records');
+                const data = await res.json();
+
+                if (data.records && data.records.length > 0) {
+                    panel.innerHTML = data.records.map(record => {
+                        const title = getFieldValue(record, 101) || `Record ${record.recordId}`;
+                        return `
+                            <div class="data-item">
+                                <div class="data-item-header">
+                                    <span class="data-item-title">${escapeHtml(title)}</span>
+                                    <span class="data-item-meta">ID: ${record.recordId}</span>
+                                </div>
+                                <div class="data-item-content">${escapeHtml(JSON.stringify(record.fieldData, null, 2).substring(0, 200))}...</div>
+                            </div>
+                        `;
+                    }).join('');
+                } else {
+                    panel.innerHTML = '<div class="empty-state" style="height: auto; padding: 20px;"><span>No mock records</span></div>';
+                }
+            } catch (err) {
+                panel.innerHTML = '<div class="empty-state" style="height: auto; padding: 20px;"><span>Failed to load</span></div>';
+            }
+        }
+
+        async function loadOnspringUpdates() {
+            const panel = document.getElementById('onspringUpdatesPanel');
+            try {
+                const res = await fetch('/api/onspring-updates');
+                const data = await res.json();
+
+                if (data.updates && data.updates.length > 0) {
+                    panel.innerHTML = data.updates.map((update, idx) => {
+                        const time = new Date(update.timestamp).toLocaleTimeString();
+                        return `
+                            <div class="data-item">
+                                <div class="data-item-header">
+                                    <span class="data-item-title">Record ${update.record_id}</span>
+                                    <span class="data-item-meta">${time}</span>
+                                </div>
+                                <div class="data-item-content">${escapeHtml(JSON.stringify(update.fields, null, 2))}</div>
+                            </div>
+                        `;
+                    }).join('');
+                } else {
+                    panel.innerHTML = '<div class="empty-state" style="height: auto; padding: 20px;"><span>No updates yet</span></div>';
+                }
+            } catch (err) {
+                panel.innerHTML = '<div class="empty-state" style="height: auto; padding: 20px;"><span>Failed to load</span></div>';
+            }
+        }
+
+        async function clearOnspringUpdates() {
+            try {
+                await fetch('/api/onspring-updates', { method: 'DELETE' });
+                loadOnspringUpdates();
+                checkStatus();
+            } catch (err) {
+                console.error('Failed to clear updates:', err);
+            }
+        }
+
+        function getFieldValue(record, fieldId) {
+            const field = record.fieldData?.find(f => f.fieldId === fieldId);
+            return field?.value;
+        }
+
         async function sendQuestionnaire() {
             const btn = document.getElementById('sendBtn');
             const btnText = document.getElementById('sendBtnText');
             const recordId = parseInt(document.getElementById('recordId').value) || 12345;
-            const appId = parseInt(document.getElementById('appId').value) || 100;
+            const appId = parseInt(document.getElementById('appId').value) || 248;
 
             btn.disabled = true;
-            btnText.innerHTML = '<span class="spinner"></span> Sending...';
+            btnText.innerHTML = '<span class="spinner"></span>';
 
             try {
-                const controller = new AbortController();
-                const timeout = setTimeout(() => controller.abort(), 60000); // 60s timeout
-
-                const res = await fetch('/api/send', {
+                await fetch('/api/send', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ record_id: recordId, app_id: appId }),
-                    signal: controller.signal
+                    body: JSON.stringify({ record_id: recordId, app_id: appId })
                 });
-
-                clearTimeout(timeout);
-
-                if (!res.ok) {
-                    throw new Error(`HTTP ${res.status}`);
-                }
             } catch (err) {
                 console.error('Send failed:', err);
             } finally {
@@ -583,21 +1004,11 @@
             btn.textContent = 'Fetching...';
 
             try {
-                const controller = new AbortController();
-                const timeout = setTimeout(() => controller.abort(), 60000); // 60s timeout
-
-                const res = await fetch('/api/stats', {
+                await fetch('/api/stats', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ record_id: recordId }),
-                    signal: controller.signal
+                    body: JSON.stringify({ record_id: recordId })
                 });
-
-                clearTimeout(timeout);
-
-                if (!res.ok) {
-                    throw new Error(`HTTP ${res.status}`);
-                }
             } catch (err) {
                 console.error('Stats failed:', err);
             } finally {
@@ -606,8 +1017,61 @@
             }
         }
 
+        async function runHandler(handlerType) {
+            const recordId = parseInt(document.getElementById('recordId').value) || 12345;
+            const appId = parseInt(document.getElementById('appId').value) || 248;
+
+            try {
+                const res = await fetch('/api/run-handler', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        handler: handlerType,
+                        record_id: recordId,
+                        app_id: appId
+                    })
+                });
+
+                // Refresh onspring updates after handler runs
+                setTimeout(() => {
+                    loadOnspringUpdates();
+                    checkStatus();
+                }, 2000);
+
+            } catch (err) {
+                console.error('Handler execution failed:', err);
+            }
+        }
+
+        async function updateApiUrl() {
+            const input = document.getElementById('apiUrlInput');
+            const apiUrl = input.value.trim();
+
+            if (!apiUrl) {
+                alert('Please enter an API URL');
+                return;
+            }
+
+            try {
+                const res = await fetch('/api/apiurl', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ api_url: apiUrl })
+                });
+
+                if (res.ok) {
+                    input.value = '';
+                    setTimeout(checkStatus, 500);
+                } else {
+                    const data = await res.json();
+                    alert(data.error || 'Failed to update API URL');
+                }
+            } catch (err) {
+                alert('Failed to update API URL: ' + err.message);
+            }
+        }
+
         async function updateApiKey() {
-            const btn = document.getElementById('apiKeyBtn');
             const input = document.getElementById('apiKeyInput');
             const apiKey = input.value.trim();
 
@@ -616,9 +1080,6 @@
                 return;
             }
 
-            btn.disabled = true;
-            btn.textContent = 'Updating...';
-
             try {
                 const res = await fetch('/api/apikey', {
                     method: 'POST',
@@ -626,21 +1087,15 @@
                     body: JSON.stringify({ api_key: apiKey })
                 });
 
-                const data = await res.json();
-
                 if (res.ok) {
                     input.value = '';
-                    // Trigger immediate status check
-                    setTimeout(checkArrmsStatus, 500);
+                    setTimeout(checkStatus, 500);
                 } else {
+                    const data = await res.json();
                     alert(data.error || 'Failed to update API key');
                 }
             } catch (err) {
-                console.error('API key update failed:', err);
                 alert('Failed to update API key: ' + err.message);
-            } finally {
-                btn.disabled = false;
-                btn.textContent = 'Update Key';
             }
         }
 

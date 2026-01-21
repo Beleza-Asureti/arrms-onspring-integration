@@ -8,16 +8,17 @@ Handles authentication, request/response processing, and error handling.
 import json
 import os
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, TYPE_CHECKING
 
-import boto3
 import requests
 from aws_lambda_powertools import Logger
-from botocore.exceptions import ClientError
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
 from utils.exceptions import ARRMSAPIError, AuthenticationError
+
+if TYPE_CHECKING:
+    from adapters.secrets import SecretsProvider
 
 logger = Logger(child=True)
 
@@ -30,10 +31,17 @@ class ARRMSClient:
     in the ARRMS platform.
     """
 
-    def __init__(self):
-        """Initialize ARRMS client with configuration from environment."""
+    def __init__(self, secrets_provider: Optional["SecretsProvider"] = None):
+        """
+        Initialize ARRMS client with configuration from environment.
+
+        Args:
+            secrets_provider: Optional secrets provider for retrieving API key.
+                              If not provided, uses AWS Secrets Manager.
+        """
         self.base_url = os.environ.get("ARRMS_API_URL")
         self.api_key_secret_name = os.environ.get("ARRMS_API_KEY_SECRET")
+        self._secrets_provider = secrets_provider
 
         if not self.base_url:
             raise ValueError("ARRMS_API_URL environment variable not set")
@@ -46,7 +54,7 @@ class ARRMSClient:
 
     def _get_api_key(self) -> str:
         """
-        Retrieve API key from AWS Secrets Manager.
+        Retrieve API key using the configured secrets provider.
 
         Returns:
             API key string
@@ -55,21 +63,17 @@ class ARRMSClient:
             AuthenticationError: If unable to retrieve API key
         """
         try:
-            secrets_client = boto3.client("secretsmanager")
-            response = secrets_client.get_secret_value(SecretId=self.api_key_secret_name)
+            # Use injected secrets provider if available
+            if self._secrets_provider is not None:
+                return self._secrets_provider.get_secret(self.api_key_secret_name)
 
-            # Handle both string and JSON secrets
-            if "SecretString" in response:
-                secret = response["SecretString"]
-                try:
-                    secret_dict = json.loads(secret)
-                    return secret_dict.get("api_key", secret)
-                except json.JSONDecodeError:
-                    return secret
-            else:
-                raise AuthenticationError("Secret not found in expected format")
+            # Fall back to auto-detected provider (checks LOCAL_DEV env var)
+            from adapters.secrets import get_secrets_provider
 
-        except ClientError as e:
+            provider = get_secrets_provider()
+            return provider.get_secret(self.api_key_secret_name)
+
+        except Exception as e:
             logger.error(f"Failed to retrieve ARRMS API key: {str(e)}")
             raise AuthenticationError(f"Could not retrieve API key: {str(e)}")
 
